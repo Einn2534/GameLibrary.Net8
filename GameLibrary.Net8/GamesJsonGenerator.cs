@@ -6,7 +6,8 @@ public class GamesJsonGenerator
 {
     private static readonly HashSet<string> ExcludedExecutableNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        "UnityCrashHandler64.exe"
+        "UnityCrashHandler64.exe",
+        "notification_helper.exe"
     };
 
     private readonly string defaultDescription;
