@@ -1,12 +1,196 @@
-﻿<Window x:Class="GameLibrary.Net8.MainWindow"
+<Window x:Class="GameLibrary.Net8.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:GameLibrary.Net8"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="{DynamicResource Window.Title}" Height="760" Width="1260" MinHeight="680" MinWidth="1040">
+    <Window.Resources>
+        <local:ListToStringConverter x:Key="ListToStringConverter" />
+    </Window.Resources>
 
-    </Grid>
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom" BorderThickness="1,1,0,0" BorderBrush="#DDD" Background="#F7F7F7" Padding="12,8">
+            <TextBlock Text="{Binding StatusMessage}" />
+        </Border>
+
+        <TabControl Margin="12">
+            <TabItem Header="{DynamicResource Tab.Library}">
+                <DockPanel Margin="8">
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <TextBox Width="240"
+                                 Margin="0,0,8,0"
+                                 VerticalAlignment="Center"
+                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                        <ComboBox Width="140"
+                                  Margin="0,0,8,0"
+                                  ItemsSource="{Binding AvailableTags}"
+                                  SelectedItem="{Binding SelectedTag, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Content="{DynamicResource Button.RefreshLibrary}" Margin="0,0,8,0" Padding="12,6" Click="RefreshLibraryButton_Click" />
+                        <Button Content="{DynamicResource Button.OpenLibraryFolder}" Padding="12,6" Click="OpenLibraryFolderButton_Click" />
+                    </StackPanel>
+
+                    <ListView ItemsSource="{Binding Games}">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="#DDD" BorderThickness="1" CornerRadius="6" Margin="0,0,0,10" Padding="10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="88" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Border Grid.Column="0" Width="72" Height="72" Background="#F1F1F1" CornerRadius="4">
+                                            <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                                        </Border>
+
+                                        <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                            <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="Bold" />
+                                            <TextBlock Margin="0,6,0,0" Text="{Binding Description}" TextWrapping="Wrap" />
+                                            <TextBlock Margin="0,6,0,0"
+                                                       Text="{Binding Tags, Converter={StaticResource ListToStringConverter}}"
+                                                       Foreground="#666" />
+                                            <TextBlock Margin="0,6,0,0" Text="{Binding Executable}" Foreground="#666" TextTrimming="CharacterEllipsis" />
+                                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                                <Button Content="{DynamicResource Button.Launch}" Tag="{Binding}" Margin="0,0,8,0" Padding="10,4" Click="LaunchButton_Click" />
+                                                <Button Content="{DynamicResource Button.OpenFolder}" Tag="{Binding}" Padding="10,4" Click="OpenFolderButton_Click" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="{DynamicResource Tab.Import}">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="180" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,8,8" FontWeight="Bold" Text="{DynamicResource Label.Runtime}" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" Text="{Binding RuntimeDirectoryPath}" TextWrapping="Wrap" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,0,8,8" FontWeight="Bold" Text="{DynamicResource Label.ArchiveInbox}" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Text="{Binding ArchiveInboxDirectory}" TextWrapping="Wrap" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,0,8,8" FontWeight="Bold" Text="{DynamicResource Label.LibraryRoot}" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" Text="{Binding GamesDirectoryPath}" TextWrapping="Wrap" />
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,0,8,0" FontWeight="Bold" Text="{DynamicResource Label.SevenZip}" />
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SevenZipPath}" TextWrapping="Wrap" />
+                    </Grid>
+
+                    <Border Grid.Row="1" BorderBrush="#DDD" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="220" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0" Text="{DynamicResource Label.From}" />
+                            <TextBox Grid.Column="1" Margin="0,0,12,0" Text="{Binding DownloadDateFromText, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,8,0" Text="{DynamicResource Label.To}" />
+                            <TextBox Grid.Column="3" Margin="0,0,12,0" Text="{Binding DownloadDateToText, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <TextBlock Grid.Column="4" VerticalAlignment="Center" Margin="0,0,8,0" Text="{DynamicResource Label.StartStep}" />
+                            <ComboBox Grid.Column="5"
+                                      Margin="0,0,12,0"
+                                      ItemsSource="{Binding DownloaderStartSteps}"
+                                      SelectedItem="{Binding SelectedDownloaderStartStep, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <WrapPanel Grid.Column="6" HorizontalAlignment="Right">
+                                <Button Content="{DynamicResource Button.RunDownloader}" Margin="0,0,8,0" Padding="12,6" Click="RunDownloaderButton_Click" IsEnabled="{Binding CanStartDownloader}" />
+                                <Button Content="{DynamicResource Button.Stop}" Margin="0,0,8,0" Padding="12,6" Click="StopDownloaderButton_Click" IsEnabled="{Binding CanStopDownloader}" />
+                                <Button Content="{DynamicResource Button.RefreshArchives}" Margin="0,0,8,0" Padding="12,6" Click="RefreshArchivesButton_Click" />
+                                <Button Content="{DynamicResource Button.ExtractAllToLibrary}" Margin="0,0,8,0" Padding="12,6" Click="ExtractAllButton_Click" />
+                                <Button Content="{DynamicResource Button.OpenInboxFolder}" Margin="0,0,8,0" Padding="12,6" Click="OpenInboxButton_Click" />
+                                <Button Content="{DynamicResource Button.OpenLibraryFolder}" Padding="12,6" Click="OpenLibraryFolderButton_Click" />
+                            </WrapPanel>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="420" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Grid Grid.Column="0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="220" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" BorderBrush="#DDD" BorderThickness="1" CornerRadius="6" Padding="10">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Top" Margin="0,0,0,8" FontWeight="Bold" Text="{DynamicResource Section.DownloaderSteps}" />
+                                    <ListView ItemsSource="{Binding DownloadSteps}">
+                                        <ListView.View>
+                                            <GridView>
+                                                <GridViewColumn Header="{DynamicResource Column.Step}" Width="240" DisplayMemberBinding="{Binding DisplayLabel}" />
+                                                <GridViewColumn Header="{DynamicResource Column.Status}" Width="120" DisplayMemberBinding="{Binding Status}" />
+                                            </GridView>
+                                        </ListView.View>
+                                    </ListView>
+                                </DockPanel>
+                            </Border>
+
+                            <Border Grid.Row="2" BorderBrush="#DDD" BorderThickness="1" CornerRadius="6" Padding="10">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Top" Margin="0,0,0,8" FontWeight="Bold" Text="{DynamicResource Section.DownloaderLog}" />
+                                    <TextBox Text="{Binding DownloaderLog}"
+                                             IsReadOnly="True"
+                                             AcceptsReturn="True"
+                                             VerticalScrollBarVisibility="Auto"
+                                             HorizontalScrollBarVisibility="Auto"
+                                             TextWrapping="Wrap"
+                                             FontFamily="Consolas" />
+                                </DockPanel>
+                            </Border>
+                        </Grid>
+
+                        <Border Grid.Column="2" BorderBrush="#DDD" BorderThickness="1" CornerRadius="6" Padding="10">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Margin="0,0,0,8" FontWeight="Bold" Text="{DynamicResource Section.ArchiveInboxContents}" />
+                                <ListView ItemsSource="{Binding Archives}">
+                                    <ListView.View>
+                                        <GridView>
+                                            <GridViewColumn Header="{DynamicResource Column.Archive}" Width="280" DisplayMemberBinding="{Binding FileName}" />
+                                            <GridViewColumn Header="{DynamicResource Column.Size}" Width="90" DisplayMemberBinding="{Binding SizeText}" />
+                                            <GridViewColumn Header="{DynamicResource Column.Modified}" Width="140" DisplayMemberBinding="{Binding ModifiedAt}" />
+                                            <GridViewColumn Header="{DynamicResource Column.Status}" Width="180" DisplayMemberBinding="{Binding Status}" />
+                                            <GridViewColumn Header="{DynamicResource Column.Path}" Width="320" DisplayMemberBinding="{Binding FullPath}" />
+                                        </GridView>
+                                    </ListView.View>
+                                </ListView>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
 </Window>
