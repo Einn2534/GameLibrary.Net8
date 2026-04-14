@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "AT57pTp1LvU=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\einn\\makuro\\GameLibrary.Net8\\GameLibrary.Net8\\GameLibrary.Net8.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\einn\\.nuget\\packages\\newtonsoft.json\\13.0.4\\newtonsoft.json.13.0.4.nupkg.sha512"
+  ],
+  "logs": []
+}
