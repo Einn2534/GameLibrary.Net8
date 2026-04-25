@@ -14,6 +14,7 @@ public class DownloadPipelineService
     private const string PrimaryFailuresFile = "primary_failures.json";
     private const string MirrorCandidatesFile = "mirror_candidates.json";
     private const string MirrorResolvedFile = "mirror_resolved.json";
+    private const string MirrorFailuresFile = "mirror_failures.json";
 
     public static IReadOnlyList<string> StepLabels =>
     [
@@ -325,6 +326,7 @@ public class DownloadPipelineService
     private async Task Step7DownloadMirrorArchivesAsync(string runtimeDirectory, string saveDirectory, Action<string> log, CancellationToken cancellationToken)
     {
         List<DownloadEntry> records = LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, MirrorResolvedFile)) ?? [];
+        var failures = new List<DownloadEntry>();
 
         for (int i = 0; i < records.Count; i++)
         {
@@ -332,6 +334,8 @@ public class DownloadPipelineService
             DownloadEntry record = records[i];
             if (string.IsNullOrWhiteSpace(record.MirrorUrl))
             {
+                record.FailureReason = "Mirror URL missing";
+                failures.Add(record);
                 log("[" + (i + 1) + "/" + records.Count + "] No mirror URL: " + record.Name);
                 continue;
             }
@@ -339,16 +343,56 @@ public class DownloadPipelineService
             try
             {
                 record.DownloadedFilePath = await DownloadResolvedUrlAsync(record.Name, record.MirrorUrl, saveDirectory, cancellationToken);
+                record.FailureReason = null;
                 log("[" + (i + 1) + "/" + records.Count + "] Downloaded mirror: " + Path.GetFileName(record.DownloadedFilePath));
             }
             catch (Exception ex)
             {
                 record.FailureReason = ex.Message;
+                failures.Add(record);
                 log("Mirror download failed for " + record.Name + ": " + ex.Message);
             }
         }
 
         SaveJson(Path.Combine(runtimeDirectory, MirrorResolvedFile), records);
+        SavePermanentMirrorFailures(runtimeDirectory, failures);
+        log("Mirror failures kept for manual resolution: " + failures.Count);
+    }
+
+    private static void SavePermanentMirrorFailures(string runtimeDirectory, List<DownloadEntry> failures)
+    {
+        if (failures.Count == 0)
+        {
+            return;
+        }
+
+        string path = Path.Combine(runtimeDirectory, MirrorFailuresFile);
+        List<DownloadEntry> permanentFailures = LoadJson<List<DownloadEntry>>(path) ?? [];
+        foreach (DownloadEntry failure in failures)
+        {
+            int existingIndex = permanentFailures.FindIndex(entry => IsSameDownloadEntry(entry, failure));
+            if (existingIndex >= 0)
+            {
+                permanentFailures[existingIndex] = failure;
+                continue;
+            }
+
+            permanentFailures.Add(failure);
+        }
+
+        SaveJson(path, permanentFailures);
+    }
+
+    private static bool IsSameDownloadEntry(DownloadEntry left, DownloadEntry right)
+    {
+        if (left == null || right == null)
+        {
+            return false;
+        }
+
+        string leftKey = !string.IsNullOrWhiteSpace(left.ArticleUrl) ? left.ArticleUrl : left.Name;
+        string rightKey = !string.IsNullOrWhiteSpace(right.ArticleUrl) ? right.ArticleUrl : right.Name;
+        return string.Equals(leftKey, rightKey, StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<string> ResolveIntermediateLinkAsync(HttpClient client, string url, CancellationToken cancellationToken)
