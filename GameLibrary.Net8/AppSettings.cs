@@ -27,6 +27,8 @@ public static class AppSettings
 
     public static string ArchiveInboxDirectory => GetPathSetting("ArchiveInboxDirectory", "incoming");
 
+    public static string ArchiveStorageDirectory => GetPathSetting("ArchiveStorageDirectory", Path.Combine(GamesDirectory, ".archives"));
+
     public static string SevenZipPath => GetPathSetting("SevenZipPath", @"C:\Program Files\7-Zip\7z.exe");
 
     public static IReadOnlyList<string> ArchivePasswords => GetListSetting("ArchivePasswords", "kimochi.info", "ADHentai");

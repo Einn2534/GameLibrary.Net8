@@ -123,6 +123,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public string ArchiveInboxDirectory => AppSettings.ArchiveInboxDirectory;
 
+    public string ArchiveStorageDirectory => AppSettings.ArchiveStorageDirectory;
+
     public string SevenZipPath => AppSettings.SevenZipPath;
 
     public string DownloadDateFromText
@@ -455,10 +457,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 if (result.Success && !result.Skipped)
                 {
                     importedCount++;
+                    TryMoveArchiveToStorage(archive);
                 }
                 else if (result.Skipped)
                 {
                     skippedCount++;
+                    TryMoveArchiveToStorage(archive);
                 }
                 else
                 {
@@ -474,6 +478,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         LoadGames();
+        LoadArchives();
         StatusMessage = UiText.Format(
             "Status.ImportComplete",
             importedCount,
@@ -531,6 +536,46 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             : SelectedDownloaderStartStep;
         string numericPart = new(stepPart.Where(char.IsDigit).ToArray());
         return int.TryParse(numericPart, out int index) ? index : 0;
+    }
+
+    private void TryMoveArchiveToStorage(ArchiveItem archive)
+    {
+        try
+        {
+            MoveArchiveToStorage(archive);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = UiText.Format("Status.ImportError", ex.Message);
+        }
+    }
+
+    private static void MoveArchiveToStorage(ArchiveItem archive)
+    {
+        if (archive == null || string.IsNullOrWhiteSpace(archive.FullPath) || !File.Exists(archive.FullPath))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(AppSettings.ArchiveStorageDirectory);
+        string destinationPath = GetUniqueArchiveStoragePath(archive.FullPath, AppSettings.ArchiveStorageDirectory);
+        File.Move(archive.FullPath, destinationPath);
+    }
+
+    private static string GetUniqueArchiveStoragePath(string archivePath, string storageDirectory)
+    {
+        string fileName = Path.GetFileNameWithoutExtension(archivePath);
+        string extension = Path.GetExtension(archivePath);
+        string destinationPath = Path.Combine(storageDirectory, Path.GetFileName(archivePath));
+        int suffix = 1;
+
+        while (File.Exists(destinationPath))
+        {
+            destinationPath = Path.Combine(storageDirectory, fileName + " (" + suffix + ")" + extension);
+            suffix++;
+        }
+
+        return destinationPath;
     }
 
     private void SetDownloaderRunning(bool isRunning)

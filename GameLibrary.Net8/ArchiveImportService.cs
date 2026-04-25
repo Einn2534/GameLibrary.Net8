@@ -31,7 +31,7 @@ public class ArchiveImportService
         }
 
         var results = Directory
-            .EnumerateFiles(sourceDirectory, "*.*", SearchOption.AllDirectories)
+            .EnumerateFiles(sourceDirectory, "*.*", SearchOption.TopDirectoryOnly)
             .Where(path => archiveExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToList();
