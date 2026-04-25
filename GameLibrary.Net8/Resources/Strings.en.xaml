@@ -13,10 +13,13 @@
     <sys:String x:Key="Button.RefreshArchives" xmlns:sys="clr-namespace:System;assembly=mscorlib">Refresh Archives</sys:String>
     <sys:String x:Key="Button.ExtractAllToLibrary" xmlns:sys="clr-namespace:System;assembly=mscorlib">Extract All to Library</sys:String>
     <sys:String x:Key="Button.OpenInboxFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">Open Inbox Folder</sys:String>
+    <sys:String x:Key="Button.SaveTags" xmlns:sys="clr-namespace:System;assembly=mscorlib">Save Tags</sys:String>
     <sys:String x:Key="Label.Runtime" xmlns:sys="clr-namespace:System;assembly=mscorlib">Runtime</sys:String>
     <sys:String x:Key="Label.ArchiveInbox" xmlns:sys="clr-namespace:System;assembly=mscorlib">Archive Inbox</sys:String>
     <sys:String x:Key="Label.LibraryRoot" xmlns:sys="clr-namespace:System;assembly=mscorlib">Library Root</sys:String>
     <sys:String x:Key="Label.SevenZip" xmlns:sys="clr-namespace:System;assembly=mscorlib">7-Zip</sys:String>
+    <sys:String x:Key="Label.Tags" xmlns:sys="clr-namespace:System;assembly=mscorlib">Tags</sys:String>
+    <sys:String x:Key="Label.AdditionalTags" xmlns:sys="clr-namespace:System;assembly=mscorlib">Add Tags</sys:String>
     <sys:String x:Key="Label.From" xmlns:sys="clr-namespace:System;assembly=mscorlib">From</sys:String>
     <sys:String x:Key="Label.To" xmlns:sys="clr-namespace:System;assembly=mscorlib">To</sys:String>
     <sys:String x:Key="Label.StartStep" xmlns:sys="clr-namespace:System;assembly=mscorlib">Start Step</sys:String>
@@ -37,6 +40,9 @@
     <sys:String x:Key="Status.Error" xmlns:sys="clr-namespace:System;assembly=mscorlib">Error</sys:String>
     <sys:String x:Key="Status.Ready" xmlns:sys="clr-namespace:System;assembly=mscorlib">Ready</sys:String>
     <sys:String x:Key="Status.LibraryLoaded" xmlns:sys="clr-namespace:System;assembly=mscorlib">Library loaded: {0} games</sys:String>
+    <sys:String x:Key="Status.TagStoreEmpty" xmlns:sys="clr-namespace:System;assembly=mscorlib">Library loaded without saved extra tags: tag store is empty ({0})</sys:String>
+    <sys:String x:Key="Status.TagStoreUnreadable" xmlns:sys="clr-namespace:System;assembly=mscorlib">Library loaded without saved extra tags: tag store could not be read ({0}): {1}</sys:String>
+    <sys:String x:Key="Status.TagStoreRepaired" xmlns:sys="clr-namespace:System;assembly=mscorlib">Saved tags after backing up the unreadable tag store to {0}</sys:String>
     <sys:String x:Key="Status.LibraryLoadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Library load failed</sys:String>
     <sys:String x:Key="Status.ArchiveInboxReady" xmlns:sys="clr-namespace:System;assembly=mscorlib">Archive inbox ready: {0} file(s)</sys:String>
     <sys:String x:Key="Status.ArchiveScanFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Archive scan failed</sys:String>
@@ -47,12 +53,14 @@
     <sys:String x:Key="Status.NoArchivesFound" xmlns:sys="clr-namespace:System;assembly=mscorlib">No archives found</sys:String>
     <sys:String x:Key="Status.ImportError" xmlns:sys="clr-namespace:System;assembly=mscorlib">Import error: {0}</sys:String>
     <sys:String x:Key="Status.ImportComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Import complete: {0} imported, {1} skipped, {2} failed</sys:String>
+    <sys:String x:Key="Status.TagsSaved" xmlns:sys="clr-namespace:System;assembly=mscorlib">Saved extra tags for {0}: {1} tag(s)</sys:String>
     <sys:String x:Key="Message.LibraryLoadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Failed to load library: {0}</sys:String>
     <sys:String x:Key="Message.ArchiveScanFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Failed to scan archive inbox: {0}</sys:String>
     <sys:String x:Key="Message.ExecutableNotFound" xmlns:sys="clr-namespace:System;assembly=mscorlib">Executable not found: {0}</sys:String>
     <sys:String x:Key="Message.LaunchFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Failed to launch game: {0}</sys:String>
     <sys:String x:Key="Message.DownloaderFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Downloader failed: {0}</sys:String>
     <sys:String x:Key="Message.FolderNotFound" xmlns:sys="clr-namespace:System;assembly=mscorlib">Folder not found: {0}</sys:String>
+    <sys:String x:Key="Message.TagSaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Failed to save tags: {0}</sys:String>
     <sys:String x:Key="Log.Stopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">[Stopped]</sys:String>
     <sys:String x:Key="Log.ErrorFormat" xmlns:sys="clr-namespace:System;assembly=mscorlib">[Error] {0}</sys:String>
     <sys:String x:Key="Archive.StatusSkippedAlreadyExists" xmlns:sys="clr-namespace:System;assembly=mscorlib">Skipped (already exists)</sys:String>

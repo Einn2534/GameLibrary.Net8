@@ -17,6 +17,8 @@ public static class AppSettings
 
     public static string IconCacheDirectory => GetPathSetting("IconCacheDirectory", Path.Combine("runtime", "icon-cache"));
 
+    public static string TagStorePath => GetPathSetting("TagStorePath", Path.Combine("runtime", "game-tags.json"));
+
     public static bool EnableRemoteIconFetch => GetBooleanSetting("EnableRemoteIconFetch", true);
 
     public static int RemoteIconFetchLimitPerRun => GetIntSetting("RemoteIconFetchLimitPerRun", 15);

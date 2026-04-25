@@ -13,6 +13,7 @@ namespace GameLibrary.Net8;
 
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
+    private readonly GameTagStoreService tagStoreService;
     private readonly GameCatalogService catalogService;
     private readonly GameCatalogService remoteIconCatalogService;
     private readonly GameFilterState filterState = new();
@@ -27,12 +28,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string downloaderLog;
     private bool isDownloaderRunning;
     private bool isRefreshingIcons;
+    private bool refreshIconsAgain;
 
     public MainWindow()
     {
         InitializeComponent();
         DataContext = this;
 
+        tagStoreService = new GameTagStoreService(AppSettings.TagStorePath);
         catalogService = new GameCatalogService(
             AppSettings.GamesDirectory,
             AppSettings.GamesJsonPath,
@@ -41,7 +44,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 new GameIconPipelineService(
                     AppSettings.IconCacheDirectory,
                     enableRemoteFetch: false,
-                    remoteFetchLimitPerRun: 0)));
+                    remoteFetchLimitPerRun: 0)),
+            tagStoreService);
 
         remoteIconCatalogService = new GameCatalogService(
             AppSettings.GamesDirectory,
@@ -51,7 +55,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 new GameIconPipelineService(
                     AppSettings.IconCacheDirectory,
                     AppSettings.EnableRemoteIconFetch,
-                    AppSettings.RemoteIconFetchLimitPerRun)));
+                    AppSettings.RemoteIconFetchLimitPerRun)),
+            tagStoreService);
 
         archiveImportService = new ArchiveImportService(
             AppSettings.SevenZipPath,
@@ -66,7 +71,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         LoadGames();
         LoadArchives();
         StatusMessage = UiText.Get("Status.Ready");
-        _ = RefreshRemoteIconsInBackgroundAsync();
     }
 
     public ObservableCollection<GameInfo> Games { get; } = new();
@@ -233,7 +237,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             UpdateAvailableTags();
             RefreshGamesView();
-            StatusMessage = UiText.Format("Status.LibraryLoaded", Games.Count);
+            StatusMessage = tagStoreService.LastStatus.HasMessage
+                ? FormatTagStoreStatus(tagStoreService.LastStatus)
+                : UiText.Format("Status.LibraryLoaded", Games.Count);
+            QueueRemoteIconRefresh();
         }
         catch (Exception ex)
         {
@@ -333,6 +340,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             : Path.GetDirectoryName(game.Executable);
 
         OpenFolder(targetDirectory);
+    }
+
+    private void SaveTagsButton_Click(object sender, RoutedEventArgs e)
+    {
+        GameInfo game = ResolveGame(sender);
+        if (game == null)
+        {
+            return;
+        }
+
+        try
+        {
+            IReadOnlyList<string> tags = tagStoreService.SaveTags(game, Games);
+            UpdateAvailableTags();
+            RefreshGamesView();
+            StatusMessage = tagStoreService.LastStatus.HasMessage
+                ? FormatTagStoreStatus(tagStoreService.LastStatus)
+                : UiText.Format("Status.TagsSaved", game.Name, tags.Count);
+        }
+        catch (Exception ex)
+        {
+            ShowError("Message.TagSaveFailed", ex.Message);
+        }
     }
 
     private async void RunDownloaderButton_Click(object sender, RoutedEventArgs e)
@@ -562,25 +592,48 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             MessageBoxImage.Warning);
     }
 
+    private static string FormatTagStoreStatus(GameTagStoreStatus status)
+    {
+        return status != null && status.HasMessage
+            ? UiText.Format(status.MessageKey, status.Args)
+            : string.Empty;
+    }
+
     private void OnPropertyChanged(string propertyName)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
-    private async Task RefreshRemoteIconsInBackgroundAsync()
+    private void QueueRemoteIconRefresh()
     {
         if (isRefreshingIcons || !AppSettings.EnableRemoteIconFetch || AppSettings.RemoteIconFetchLimitPerRun <= 0)
         {
+            if (isRefreshingIcons)
+            {
+                refreshIconsAgain = true;
+            }
+
             return;
         }
 
+        _ = RefreshRemoteIconsInBackgroundAsync();
+    }
+
+    private async Task RefreshRemoteIconsInBackgroundAsync()
+    {
         isRefreshingIcons = true;
+        refreshIconsAgain = false;
 
         try
         {
             IReadOnlyList<GameInfo> refreshedGames = await Task.Run(() => remoteIconCatalogService.LoadGames());
             await Dispatcher.InvokeAsync(() =>
             {
+                if (refreshIconsAgain)
+                {
+                    return;
+                }
+
                 Games.Clear();
                 foreach (GameInfo game in refreshedGames)
                 {
@@ -597,6 +650,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         finally
         {
             isRefreshingIcons = false;
+            if (refreshIconsAgain)
+            {
+                QueueRemoteIconRefresh();
+            }
         }
     }
 }

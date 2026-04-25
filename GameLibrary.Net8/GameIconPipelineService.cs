@@ -51,6 +51,29 @@ public class GameIconPipelineService
         return new GameIconResolveResult(iconPath, attemptedRemoteFetch: true);
     }
 
+    public GameSourceMetadata ResolveSourceMetadata(string gameName, string gameRootDirectory)
+    {
+        string entryDirectory = GetEntryDirectory(gameName, gameRootDirectory);
+        IconFetchMetadata metadata = LoadMetadata(entryDirectory);
+        if (metadata == null || string.IsNullOrWhiteSpace(metadata.SourcePageUrl))
+        {
+            return new GameSourceMetadata();
+        }
+
+        if ((metadata.SourceTags == null || metadata.SourceTags.Count == 0) &&
+            IsLikelyHtmlSourceUrl(metadata.SourcePageUrl))
+        {
+            metadata.SourceTags = FetchSourceTags(metadata.SourcePageUrl);
+            SaveMetadata(entryDirectory, metadata);
+        }
+
+        return new GameSourceMetadata
+        {
+            SourcePageUrl = metadata.SourcePageUrl ?? string.Empty,
+            DefaultTags = NormalizeTagList(metadata.SourceTags)
+        };
+    }
+
     private IconFetchMetadata FetchAndCacheIcon(string gameName, string entryDirectory)
     {
         try
@@ -75,7 +98,8 @@ public class GameIconPipelineService
                             Success = true,
                             Source = "kimochi",
                             SourcePageUrl = articleUrl,
-                            ImageUrl = articleCandidate.ImageUrl
+                            ImageUrl = articleCandidate.ImageUrl,
+                            SourceTags = articleCandidate.SourceTags
                         };
                     }
 
@@ -88,8 +112,9 @@ public class GameIconPipelineService
                             LastAttemptUtc = DateTime.UtcNow,
                             Success = true,
                             Source = "dlsite",
-                            SourcePageUrl = articleCandidate.DlsiteProductUrl,
-                            ImageUrl = dlsiteImageUrl
+                            SourcePageUrl = articleUrl,
+                            ImageUrl = dlsiteImageUrl,
+                            SourceTags = articleCandidate.SourceTags
                         };
                     }
                 }
@@ -221,7 +246,8 @@ public class GameIconPipelineService
             ArticleUrl = articleUrl,
             Title = ExtractMetaContent(html, "og:title"),
             ImageUrl = ExtractMetaContent(html, "og:image"),
-            DlsiteProductUrl = ExtractDlsiteProductUrl(html)
+            DlsiteProductUrl = ExtractDlsiteProductUrl(html),
+            SourceTags = ExtractSourceTags(html)
         };
     }
 
@@ -324,6 +350,74 @@ public class GameIconPipelineService
             "<meta[^>]+(?:property|name)=[\"']" + Regex.Escape(propertyName) + "[\"'][^>]+content=[\"'](?<content>[^\"']+)[\"']",
             RegexOptions.IgnoreCase);
         return match.Success ? WebUtility.HtmlDecode(match.Groups["content"].Value) : string.Empty;
+    }
+
+    private static List<string> FetchSourceTags(string sourcePageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(sourcePageUrl))
+        {
+            return new List<string>();
+        }
+
+        try
+        {
+            string html = GetStringSafe(sourcePageUrl);
+            return ExtractSourceTags(html);
+        }
+        catch
+        {
+            return new List<string>();
+        }
+    }
+
+    private static List<string> ExtractSourceTags(string html)
+    {
+        IEnumerable<string> metaTags = Regex.Matches(
+                html ?? string.Empty,
+                "<meta[^>]+property=[\"']article:tag[\"'][^>]+content=[\"'](?<tag>[^\"']+)[\"']",
+                RegexOptions.IgnoreCase)
+            .OfType<Match>()
+            .Select(match => WebUtility.HtmlDecode(match.Groups["tag"].Value));
+
+        IEnumerable<string> linkTags = Regex.Matches(
+                html ?? string.Empty,
+                "<a[^>]+href=[\"'][^\"']*/tag/[^\"']*[\"'][^>]*>(?<tag>.*?)</a>",
+                RegexOptions.IgnoreCase)
+            .OfType<Match>()
+            .Select(match => Regex.Replace(WebUtility.HtmlDecode(match.Groups["tag"].Value), "<.*?>", string.Empty));
+
+        return NormalizeTagList(metaTags.Concat(linkTags));
+    }
+
+    private static bool IsLikelyHtmlSourceUrl(string sourcePageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(sourcePageUrl) || !Uri.TryCreate(sourcePageUrl, UriKind.Absolute, out Uri uri))
+        {
+            return false;
+        }
+
+        string extension = Path.GetExtension(uri.AbsolutePath);
+        return string.IsNullOrWhiteSpace(extension) ||
+               string.Equals(extension, ".html", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static List<string> NormalizeTagList(IEnumerable<string> tags)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var results = new List<string>();
+
+        foreach (string tag in tags ?? Enumerable.Empty<string>())
+        {
+            string cleaned = Regex.Replace(tag ?? string.Empty, "\\s+", " ").Trim();
+            if (string.IsNullOrWhiteSpace(cleaned) || !seen.Add(cleaned))
+            {
+                continue;
+            }
+
+            results.Add(cleaned);
+        }
+
+        return results;
     }
 
     private static int ComputeTitleMatchScore(string candidateTitle, string gameName)
@@ -522,6 +616,8 @@ public class GameIconPipelineService
 
         public string ImageUrl { get; set; }
 
+        public List<string> SourceTags { get; set; } = new();
+
         public string LastError { get; set; }
     }
 
@@ -534,6 +630,8 @@ public class GameIconPipelineService
         public string ImageUrl { get; set; }
 
         public string DlsiteProductUrl { get; set; }
+
+        public List<string> SourceTags { get; set; } = new();
 
         public bool IsMatchFor(string gameName)
         {

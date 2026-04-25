@@ -7,12 +7,18 @@ public class GameCatalogService
     private readonly string gamesDirectory;
     private readonly string jsonPath;
     private readonly GamesJsonGenerator generator;
+    private readonly GameTagStoreService tagStoreService;
 
-    public GameCatalogService(string gamesDirectory, string jsonPath, GamesJsonGenerator generator = null)
+    public GameCatalogService(
+        string gamesDirectory,
+        string jsonPath,
+        GamesJsonGenerator generator = null,
+        GameTagStoreService tagStoreService = null)
     {
         this.gamesDirectory = gamesDirectory ?? throw new ArgumentNullException(nameof(gamesDirectory));
         this.jsonPath = jsonPath ?? throw new ArgumentNullException(nameof(jsonPath));
         this.generator = generator ?? new GamesJsonGenerator();
+        this.tagStoreService = tagStoreService ?? new GameTagStoreService(AppSettings.TagStorePath);
     }
 
     public IReadOnlyList<GameInfo> LoadGames()
@@ -26,6 +32,8 @@ public class GameCatalogService
 
         string jsonContent = File.ReadAllText(jsonPath);
         var games = JsonConvert.DeserializeObject<List<GameInfo>>(jsonContent);
-        return games ?? new List<GameInfo>();
+        List<GameInfo> loadedGames = games ?? new List<GameInfo>();
+        tagStoreService.ApplyTags(loadedGames);
+        return loadedGames;
     }
 }

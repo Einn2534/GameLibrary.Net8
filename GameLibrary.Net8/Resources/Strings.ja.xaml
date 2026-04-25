@@ -37,6 +37,9 @@
     <sys:String x:Key="Status.Error" xmlns:sys="clr-namespace:System;assembly=mscorlib">エラー</sys:String>
     <sys:String x:Key="Status.Ready" xmlns:sys="clr-namespace:System;assembly=mscorlib">準備完了</sys:String>
     <sys:String x:Key="Status.LibraryLoaded" xmlns:sys="clr-namespace:System;assembly=mscorlib">ライブラリを読み込みました: {0} 件</sys:String>
+    <sys:String x:Key="Status.TagStoreEmpty" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存済み追加タグなしでライブラリを読み込みました: タグストアが空です ({0})</sys:String>
+    <sys:String x:Key="Status.TagStoreUnreadable" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存済み追加タグなしでライブラリを読み込みました: タグストアを読み取れません ({0}): {1}</sys:String>
+    <sys:String x:Key="Status.TagStoreRepaired" xmlns:sys="clr-namespace:System;assembly=mscorlib">読み取れないタグストアを {0} にバックアップしてからタグを保存しました</sys:String>
     <sys:String x:Key="Status.LibraryLoadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">ライブラリの読み込みに失敗しました</sys:String>
     <sys:String x:Key="Status.ArchiveInboxReady" xmlns:sys="clr-namespace:System;assembly=mscorlib">アーカイブ受信箱を準備しました: {0} 件</sys:String>
     <sys:String x:Key="Status.ArchiveScanFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">アーカイブの走査に失敗しました</sys:String>
@@ -70,4 +73,9 @@
     <sys:String x:Key="Downloader.Step.5" xmlns:sys="clr-namespace:System;assembly=mscorlib">ミラーフォールバック準備</sys:String>
     <sys:String x:Key="Downloader.Step.6" xmlns:sys="clr-namespace:System;assembly=mscorlib">ミラーリンク解決</sys:String>
     <sys:String x:Key="Downloader.Step.7" xmlns:sys="clr-namespace:System;assembly=mscorlib">ミラーアーカイブ取得</sys:String>
+    <sys:String x:Key="Button.SaveTags" xmlns:sys="clr-namespace:System;assembly=mscorlib">タグを保存</sys:String>
+    <sys:String x:Key="Label.Tags" xmlns:sys="clr-namespace:System;assembly=mscorlib">タグ</sys:String>
+    <sys:String x:Key="Label.AdditionalTags" xmlns:sys="clr-namespace:System;assembly=mscorlib">追加タグ</sys:String>
+    <sys:String x:Key="Status.TagsSaved" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0} の追加タグを保存しました: {1} 件</sys:String>
+    <sys:String x:Key="Message.TagSaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">タグの保存に失敗しました: {0}</sys:String>
 </ResourceDictionary>
