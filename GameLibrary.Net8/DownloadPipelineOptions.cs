@@ -11,4 +11,6 @@ public class DownloadPipelineOptions
     public DateTime? DateTo { get; set; }
 
     public int StartStepIndex { get; set; }
+
+    public bool FailedOnly { get; set; }
 }

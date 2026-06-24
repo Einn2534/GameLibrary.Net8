@@ -1,20 +1,28 @@
-using Newtonsoft.Json;
+using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
+using static GameLibrary.Net8.DownloadEntryOperations;
+using static GameLibrary.Net8.DownloadFileInspector;
+using static GameLibrary.Net8.DownloadPipelineArtifacts;
+using static GameLibrary.Net8.DownloadPipelineRecordSets;
 
 namespace GameLibrary.Net8;
 
 public class DownloadPipelineService
 {
     private const string BaseUrl = "https://kimochi.info";
-    private const string ArticleUrlsFile = "article_urls.json";
-    private const string DownloadRecordsFile = "download_records.json";
-    private const string PrimaryResolvedFile = "primary_resolved.json";
-    private const string PrimaryFailuresFile = "primary_failures.json";
-    private const string MirrorCandidatesFile = "mirror_candidates.json";
-    private const string MirrorResolvedFile = "mirror_resolved.json";
-    private const string MirrorFailuresFile = "mirror_failures.json";
+    private const int ProgressSaveInterval = 25;
+    private const int MaxRetryAttempts = 3;
+    private readonly GameIconPipelineService iconPipelineService;
+
+    public DownloadPipelineService(GameIconPipelineService iconPipelineService = null)
+    {
+        this.iconPipelineService = iconPipelineService ?? new GameIconPipelineService(
+            AppSettings.IconCacheDirectory,
+            AppSettings.EnableRemoteIconFetch,
+            AppSettings.RemoteIconFetchLimitPerRun);
+    }
 
     public static IReadOnlyList<string> StepLabels =>
     [
@@ -27,6 +35,46 @@ public class DownloadPipelineService
         UiText.Get("Downloader.Step.6"),
         UiText.Get("Downloader.Step.7")
     ];
+
+    public DownloadFailureRerunInfo GetFailureRerunInfo(string runtimeDirectory, int stepIndex)
+    {
+        runtimeDirectory = string.IsNullOrWhiteSpace(runtimeDirectory)
+            ? AppSettings.RuntimeDirectory
+            : runtimeDirectory;
+        if (stepIndex < 2)
+        {
+            stepIndex = 2;
+        }
+
+        return stepIndex switch
+        {
+            2 => new DownloadFailureRerunInfo(
+                stepIndex,
+                HostLinkFailuresFile,
+                GetUnresolvedHostLinkFailures(runtimeDirectory).Count),
+            3 => new DownloadFailureRerunInfo(
+                stepIndex,
+                PrimaryResolvedFile,
+                GetUnresolvedPrimaryLinkRecords(runtimeDirectory).Count),
+            4 => new DownloadFailureRerunInfo(
+                stepIndex,
+                PrimaryFailuresFile,
+                GetUnresolvedPrimaryDownloadFailures(runtimeDirectory).Count),
+            5 => new DownloadFailureRerunInfo(
+                stepIndex,
+                PrimaryFailuresFile,
+                GetMirrorFallbackCandidates(runtimeDirectory).Count),
+            6 => new DownloadFailureRerunInfo(
+                stepIndex,
+                MirrorResolvedFile,
+                GetUnresolvedMirrorLinkRecords(runtimeDirectory).Count),
+            7 => new DownloadFailureRerunInfo(
+                stepIndex,
+                MirrorFailuresFile,
+                GetUnresolvedMirrorDownloadFailures(runtimeDirectory).Count),
+            _ => new DownloadFailureRerunInfo(stepIndex, UiText.Get("Downloader.NoFailureSet"), 0)
+        };
+    }
 
     public async Task RunAsync(
         DownloadPipelineOptions options,
@@ -42,6 +90,9 @@ public class DownloadPipelineService
         Directory.CreateDirectory(options.RuntimeDirectory);
         Directory.CreateDirectory(options.SaveDirectory);
 
+        DownloadRunState runState = CreateRunState(options);
+        SaveRunState(options.RuntimeDirectory, runState);
+
         for (int i = 0; i < StepLabels.Count; i++)
         {
             if (i < options.StartStepIndex)
@@ -50,11 +101,27 @@ public class DownloadPipelineService
                 continue;
             }
 
+            if (options.FailedOnly && i < 2)
+            {
+                setStepStatus(i, UiText.Get("Status.Skipped"));
+                continue;
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
+            runState.LastStartedStepIndex = i;
+            runState.UpdatedAt = DateTime.Now;
+            SaveRunState(options.RuntimeDirectory, runState);
+
             setStepStatus(i, UiText.Get("Status.Running"));
             log(string.Empty);
             log(new string('=', 52));
             log("Step " + i + ": " + StepLabels[i]);
+            if (options.FailedOnly)
+            {
+                DownloadFailureRerunInfo rerunInfo = GetFailureRerunInfo(options.RuntimeDirectory, i);
+                log("Failed-only source: " + rerunInfo.FailureSetName + " (" + rerunInfo.UnresolvedCount + " unresolved)");
+            }
+
             log(new string('=', 52));
 
             try
@@ -68,33 +135,57 @@ public class DownloadPipelineService
                         await Step1NormalizeArticleUrlsAsync(options.RuntimeDirectory, log, cancellationToken);
                         break;
                     case 2:
-                        await Step2ExtractHostLinksAsync(options.RuntimeDirectory, log, cancellationToken);
+                        await Step2ExtractHostLinksAsync(options.RuntimeDirectory, options.SaveDirectory, options.FailedOnly, log, cancellationToken);
                         break;
                     case 3:
-                        await Step3ResolvePrimaryLinksAsync(options.RuntimeDirectory, log, cancellationToken);
+                        await Step3ResolvePrimaryLinksAsync(options.RuntimeDirectory, options.FailedOnly, log, cancellationToken);
                         break;
                     case 4:
-                        await Step4DownloadPrimaryArchivesAsync(options.RuntimeDirectory, options.SaveDirectory, log, cancellationToken);
+                        await Step4DownloadPrimaryArchivesAsync(options.RuntimeDirectory, options.SaveDirectory, options.FailedOnly, log, cancellationToken);
                         break;
                     case 5:
-                        await Step5PrepareMirrorFallbackAsync(options.RuntimeDirectory, log, cancellationToken);
+                        await Step5PrepareMirrorFallbackAsync(options.RuntimeDirectory, options.FailedOnly, log, cancellationToken);
                         break;
                     case 6:
-                        await Step6ResolveMirrorLinksAsync(options.RuntimeDirectory, log, cancellationToken);
+                        await Step6ResolveMirrorLinksAsync(options.RuntimeDirectory, options.FailedOnly, log, cancellationToken);
                         break;
                     case 7:
-                        await Step7DownloadMirrorArchivesAsync(options.RuntimeDirectory, options.SaveDirectory, log, cancellationToken);
+                        await Step7DownloadMirrorArchivesAsync(options.RuntimeDirectory, options.SaveDirectory, options.FailedOnly, log, cancellationToken);
                         break;
                 }
 
-                    setStepStatus(i, UiText.Get("Status.Done"));
-                }
-                catch
-                {
-                    setStepStatus(i, UiText.Get("Status.Error"));
-                    throw;
-                }
+                runState.LastCompletedStepIndex = i;
+                runState.UpdatedAt = DateTime.Now;
+                SaveRunState(options.RuntimeDirectory, runState);
+                setStepStatus(i, UiText.Get("Status.Done"));
             }
+            catch
+            {
+                runState.UpdatedAt = DateTime.Now;
+                SaveRunState(options.RuntimeDirectory, runState);
+                setStepStatus(i, UiText.Get("Status.Error"));
+                throw;
+            }
+        }
+    }
+
+    private static DownloadRunState CreateRunState(DownloadPipelineOptions options)
+    {
+        DateTime now = DateTime.Now;
+        return new DownloadRunState
+        {
+            DateFrom = options.DateFrom?.Date,
+            DateTo = options.DateTo?.Date,
+            RequestedStartStepIndex = options.StartStepIndex,
+            FailedOnly = options.FailedOnly,
+            StartedAt = now,
+            UpdatedAt = now
+        };
+    }
+
+    private static void SaveRunState(string runtimeDirectory, DownloadRunState runState)
+    {
+        SaveJson(Path.Combine(runtimeDirectory, RunStateFile), runState);
     }
 
     private async Task Step0CollectArticleUrlsAsync(
@@ -111,9 +202,13 @@ public class DownloadPipelineService
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            string pageUrl = page == 1 ? BaseUrl + "/" : BaseUrl + "/page/" + page + "/";
+            string pageUrl = BaseUrl + "/browse/page/" + page + "/";
             log("Fetching page " + page + ": " + pageUrl);
-            string html = await GetStringSafeAsync(client, pageUrl, cancellationToken);
+            string html = await RetryAsync(
+                () => GetStringSafeAsync(client, pageUrl, cancellationToken),
+                log,
+                "fetch page " + page,
+                cancellationToken);
             if (string.IsNullOrWhiteSpace(html))
             {
                 log("No more article pages.");
@@ -145,10 +240,14 @@ public class DownloadPipelineService
                     }
                 }
 
-                urls.Add(article.Item1);
+                if (!urls.Contains(article.Item1, StringComparer.OrdinalIgnoreCase))
+                {
+                    urls.Add(article.Item1);
+                }
             }
 
             log("Collected " + urls.Count + " article URL(s) so far.");
+            SaveJson(Path.Combine(runtimeDirectory, ArticleUrlsFile), urls.Distinct(StringComparer.OrdinalIgnoreCase).ToList());
             if (reachedOlderArticle)
             {
                 break;
@@ -176,186 +275,436 @@ public class DownloadPipelineService
         return Task.CompletedTask;
     }
 
-    private async Task Step2ExtractHostLinksAsync(string runtimeDirectory, Action<string> log, CancellationToken cancellationToken)
+    private async Task Step2ExtractHostLinksAsync(string runtimeDirectory, string saveDirectory, bool failedOnly, Action<string> log, CancellationToken cancellationToken)
     {
-        List<string> articleUrls = LoadJson<List<string>>(Path.Combine(runtimeDirectory, ArticleUrlsFile)) ?? [];
-        var records = new List<DownloadEntry>();
+        List<string> articleUrls = failedOnly
+            ? GetUnresolvedHostLinkFailures(runtimeDirectory)
+                .Select(record => record.ArticleUrl)
+                .Where(url => !string.IsNullOrWhiteSpace(url))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList()
+            : LoadJson<List<string>>(Path.Combine(runtimeDirectory, ArticleUrlsFile)) ?? [];
+        List<DownloadEntry> records = LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, DownloadRecordsFile)) ?? [];
+        List<DownloadEntry> failures = LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, HostLinkFailuresFile)) ?? [];
 
-        using HttpClient client = CreateHttpClient();
-        for (int i = 0; i < articleUrls.Count; i++)
+        if (!failedOnly)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            string articleUrl = articleUrls[i];
-            try
+            records = records
+                .Where(record => articleUrls.Any(url => IsSameDownloadEntry(record, new DownloadEntry { ArticleUrl = url })))
+                .ToList();
+            failures = failures
+                .Where(record => articleUrls.Any(url => IsSameDownloadEntry(record, new DownloadEntry { ArticleUrl = url })))
+                .ToList();
+        }
+
+        List<DownloadEntry> previouslyDownloadedRecords = GetPreviouslyDownloadedRecords(runtimeDirectory, saveDirectory);
+        var skippedDownloadedRecords = new List<DownloadEntry>();
+        log((failedOnly ? "Retrying " : "Processing ") + articleUrls.Count + " article URL(s).");
+        if (previouslyDownloadedRecords.Count > 0)
+        {
+            log("Step 2 downloaded-history filter: " + previouslyDownloadedRecords.Count + " record(s).");
+        }
+
+        try
+        {
+            using HttpClient client = CreateHttpClient();
+            for (int i = 0; i < articleUrls.Count; i++)
             {
-                string html = await GetStringSafeAsync(client, articleUrl, cancellationToken);
-                if (string.IsNullOrWhiteSpace(html))
+                cancellationToken.ThrowIfCancellationRequested();
+                string articleUrl = articleUrls[i];
+                DownloadEntry existingRecord = records.FirstOrDefault(record => IsSameDownloadEntry(record, new DownloadEntry { ArticleUrl = articleUrl }));
+                DownloadEntry articleRecord = existingRecord ?? new DownloadEntry { ArticleUrl = articleUrl };
+                if (TryMarkPreviouslyDownloaded(
+                    articleRecord,
+                    previouslyDownloadedRecords,
+                    saveDirectory,
+                    _ => { },
+                    out DownloadEntry previouslyDownloadedRecord))
                 {
-                    log("[" + (i + 1) + "/" + articleUrls.Count + "] Empty article response: " + articleUrl);
+                    DownloadEntry skippedRecord = MergeDownloadEntry(articleRecord, previouslyDownloadedRecord);
+                    UpsertDownloadEntry(records, skippedRecord);
+                    RemoveDownloadEntry(failures, skippedRecord);
+                    UpsertDownloadEntry(skippedDownloadedRecords, skippedRecord);
+                    log("[" + (i + 1) + "/" + articleUrls.Count + "] Skipped previously downloaded: " + DescribeDownloadEntry(skippedRecord));
                     continue;
                 }
 
-                string title = ExtractArticleTitle(html);
-                string fileName = SanitizeFileName(string.IsNullOrWhiteSpace(title) ? "unknown_title" : title);
-                string driveLink = ExtractHostLink(html, "Drive", articleUrl);
-                string mirrorLink = ExtractHostLink(html, "Mirror", articleUrl);
-
-                records.Add(new DownloadEntry
+                if (existingRecord != null &&
+                    HasExtractedHostLinks(existingRecord) &&
+                    HasExtractedArticleMetadata(existingRecord))
                 {
-                    Name = fileName,
-                    ArticleUrl = articleUrl,
-                    DriveIntermediateUrl = driveLink,
-                    MirrorIntermediateUrl = mirrorLink
-                });
+                    log("[" + (i + 1) + "/" + articleUrls.Count + "] Already extracted: " + articleUrl);
+                    continue;
+                }
 
-                log("[" + (i + 1) + "/" + articleUrls.Count + "] " + fileName);
-            }
-            catch (Exception ex)
-            {
-                log("Failed to extract host links: " + ex.Message);
+                try
+                {
+                    string html = await RetryAsync(
+                        () => GetStringSafeAsync(client, articleUrl, cancellationToken),
+                        log,
+                        "extract host links",
+                        cancellationToken);
+                    if (string.IsNullOrWhiteSpace(html))
+                    {
+                        log("[" + (i + 1) + "/" + articleUrls.Count + "] Empty article response: " + articleUrl);
+                        continue;
+                    }
+
+                    string title = ExtractArticleTitle(html);
+                    string fileName = SanitizeFileName(string.IsNullOrWhiteSpace(title) ? "unknown_title" : title);
+                    string driveLink = ExtractHostLink(html, "Drive", articleUrl);
+                    string mirrorLink = ExtractHostLink(html, "Mirror", articleUrl);
+                    ArticleMetadataResult metadataResult = TryCacheArticleMetadata(fileName, articleUrl, html, log);
+
+                    DownloadEntry nextRecord = MergeDownloadEntry(new DownloadEntry
+                    {
+                        Name = fileName,
+                        ArticleUrl = articleUrl,
+                        DriveIntermediateUrl = driveLink,
+                        MirrorIntermediateUrl = mirrorLink,
+                        IconPath = metadataResult.IconPath,
+                        DefaultTags = metadataResult.DefaultTags
+                    }, existingRecord);
+
+                    if (TryMarkPreviouslyDownloaded(
+                        nextRecord,
+                        previouslyDownloadedRecords,
+                        saveDirectory,
+                        log,
+                        out DownloadEntry downloadedRecord))
+                    {
+                        DownloadEntry skippedRecord = MergeDownloadEntry(nextRecord, downloadedRecord);
+                        UpsertDownloadEntry(records, skippedRecord);
+                        RemoveDownloadEntry(failures, skippedRecord);
+                        UpsertDownloadEntry(skippedDownloadedRecords, skippedRecord);
+                        log("[" + (i + 1) + "/" + articleUrls.Count + "] Skipped previously downloaded: " + DescribeDownloadEntry(skippedRecord));
+                        continue;
+                    }
+
+                    UpsertDownloadEntry(records, nextRecord);
+                    RemoveDownloadEntry(failures, new DownloadEntry { ArticleUrl = articleUrl });
+
+                    log("[" + (i + 1) + "/" + articleUrls.Count + "] " + fileName);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    UpsertDownloadEntry(failures, new DownloadEntry
+                    {
+                        Name = articleUrl,
+                        ArticleUrl = articleUrl,
+                        FailureReason = ex.Message
+                    });
+                    log("Failed to extract host links: " + ex.Message);
+                }
+
+                if ((i + 1) % ProgressSaveInterval == 0)
+                {
+                    SaveJson(Path.Combine(runtimeDirectory, DownloadRecordsFile), records);
+                    SaveJson(Path.Combine(runtimeDirectory, HostLinkFailuresFile), failures);
+                }
             }
         }
+        finally
+        {
+            SaveJson(Path.Combine(runtimeDirectory, DownloadRecordsFile), records);
+            SaveJson(Path.Combine(runtimeDirectory, HostLinkFailuresFile), failures);
+            RemoveDownloadEntriesFromFailureFile(runtimeDirectory, PrimaryFailuresFile, skippedDownloadedRecords);
+            RemoveDownloadEntriesFromFailureFile(runtimeDirectory, MirrorFailuresFile, skippedDownloadedRecords);
+        }
 
-        SaveJson(Path.Combine(runtimeDirectory, DownloadRecordsFile), records);
+        if (skippedDownloadedRecords.Count > 0)
+        {
+            log("Skipped previously downloaded article(s) at step 2: " + skippedDownloadedRecords.Count);
+        }
+
         log("Saved " + records.Count + " download record(s).");
+        log("Host link extraction failures: " + failures.Count);
     }
 
-    private async Task Step3ResolvePrimaryLinksAsync(string runtimeDirectory, Action<string> log, CancellationToken cancellationToken)
+    private async Task Step3ResolvePrimaryLinksAsync(string runtimeDirectory, bool failedOnly, Action<string> log, CancellationToken cancellationToken)
     {
-        List<DownloadEntry> records = LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, DownloadRecordsFile)) ?? [];
+        List<DownloadEntry> sourceRecords = LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, DownloadRecordsFile)) ?? [];
+        List<DownloadEntry> allRecords = MergeDownloadEntries(
+            sourceRecords,
+            LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, PrimaryResolvedFile)) ?? []);
+        List<DownloadEntry> records = failedOnly
+            ? allRecords.Where(IsUnresolvedPrimaryLinkRecord).ToList()
+            : allRecords.Where(record => !IsDownloaded(record)).ToList();
 
-        using HttpClient client = CreateHttpClient();
-        for (int i = 0; i < records.Count; i++)
+        log((failedOnly ? "Retrying " : "Processing ") + records.Count + " primary link record(s).");
+
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            DownloadEntry record = records[i];
-            if (string.IsNullOrWhiteSpace(record.DriveIntermediateUrl))
+            using HttpClient client = CreateHttpClient();
+            for (int i = 0; i < records.Count; i++)
             {
-                log("[" + (i + 1) + "/" + records.Count + "] No primary link for " + record.Name);
-                continue;
-            }
+                cancellationToken.ThrowIfCancellationRequested();
+                DownloadEntry record = records[i];
+                if (string.IsNullOrWhiteSpace(record.DriveIntermediateUrl))
+                {
+                    log("[" + (i + 1) + "/" + records.Count + "] No primary link for " + record.Name);
+                    continue;
+                }
 
-            try
-            {
-                record.PrimaryUrl = await ResolveIntermediateLinkAsync(client, record.DriveIntermediateUrl, cancellationToken);
-                log("[" + (i + 1) + "/" + records.Count + "] Resolved primary URL for " + record.Name);
-            }
-            catch (Exception ex)
-            {
-                record.FailureReason = ex.Message;
-                log("Primary link resolution failed for " + record.Name + ": " + ex.Message);
+                if (!string.IsNullOrWhiteSpace(record.PrimaryUrl))
+                {
+                    log("[" + (i + 1) + "/" + records.Count + "] Already resolved primary URL for " + record.Name);
+                    continue;
+                }
+
+                try
+                {
+                    record.PrimaryUrl = await RetryAsync(
+                        () => ResolveIntermediateLinkAsync(client, record.DriveIntermediateUrl, cancellationToken),
+                        log,
+                        "resolve primary link",
+                        cancellationToken);
+                    record.FailureReason = null;
+                    log("[" + (i + 1) + "/" + records.Count + "] Resolved primary URL for " + record.Name);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    record.FailureReason = ex.Message;
+                    log("Primary link resolution failed for " + record.Name + ": " + ex.Message);
+                }
+
+                if ((i + 1) % ProgressSaveInterval == 0)
+                {
+                    SaveJson(Path.Combine(runtimeDirectory, PrimaryResolvedFile), allRecords);
+                }
             }
         }
-
-        SaveJson(Path.Combine(runtimeDirectory, PrimaryResolvedFile), records);
+        finally
+        {
+            SaveJson(Path.Combine(runtimeDirectory, PrimaryResolvedFile), allRecords);
+        }
     }
 
-    private async Task Step4DownloadPrimaryArchivesAsync(string runtimeDirectory, string saveDirectory, Action<string> log, CancellationToken cancellationToken)
+    private async Task Step4DownloadPrimaryArchivesAsync(string runtimeDirectory, string saveDirectory, bool failedOnly, Action<string> log, CancellationToken cancellationToken)
     {
-        List<DownloadEntry> records = LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, PrimaryResolvedFile)) ?? [];
-        var failures = new List<DownloadEntry>();
+        List<DownloadEntry> allRecords = LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, PrimaryResolvedFile)) ?? [];
+        List<DownloadEntry> records = failedOnly
+            ? MergeDownloadEntries(GetUnresolvedPrimaryDownloadFailures(runtimeDirectory), allRecords)
+            : allRecords.Where(record => !IsDownloaded(record)).ToList();
+        List<DownloadEntry> failures = failedOnly
+            ? LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, PrimaryFailuresFile)) ?? []
+            : [];
 
-        for (int i = 0; i < records.Count; i++)
+        log((failedOnly ? "Retrying " : "Processing ") + records.Count + " primary download record(s).");
+
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            DownloadEntry record = records[i];
+            for (int i = 0; i < records.Count; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                DownloadEntry record = records[i];
 
-            if (string.IsNullOrWhiteSpace(record.PrimaryUrl))
-            {
-                record.FailureReason = "Primary URL missing";
-                failures.Add(record);
-                log("[" + (i + 1) + "/" + records.Count + "] No primary URL: " + record.Name);
-                continue;
-            }
+                if (string.IsNullOrWhiteSpace(record.PrimaryUrl))
+                {
+                    record.FailureReason = "Primary URL missing";
+                    UpsertDownloadEntry(failures, record);
+                    log("[" + (i + 1) + "/" + records.Count + "] No primary URL: " + record.Name);
+                    continue;
+                }
 
-            try
-            {
-                record.DownloadedFilePath = await DownloadResolvedUrlAsync(record.Name, record.PrimaryUrl, saveDirectory, cancellationToken);
-                record.FailureReason = null;
-                log("[" + (i + 1) + "/" + records.Count + "] Downloaded primary: " + Path.GetFileName(record.DownloadedFilePath));
-            }
-            catch (Exception ex)
-            {
-                record.FailureReason = ex.Message;
-                failures.Add(record);
-                log("Primary download failed for " + record.Name + ": " + ex.Message);
+                if (TryUseExistingDownloadedFile(record, saveDirectory, log, "primary"))
+                {
+                    RemoveDownloadEntry(failures, record);
+                    log("[" + (i + 1) + "/" + records.Count + "] Already downloaded primary: " + Path.GetFileName(record.DownloadedFilePath));
+                    continue;
+                }
+
+                try
+                {
+                    record.DownloadedFilePath = await RetryAsync(
+                        () => DownloadResolvedUrlAsync(record.Name, record.PrimaryUrl, saveDirectory, cancellationToken),
+                        log,
+                        "download primary",
+                        cancellationToken);
+                    record.FailureReason = null;
+                    RemoveDownloadEntry(failures, record);
+                    log("[" + (i + 1) + "/" + records.Count + "] Downloaded primary: " + Path.GetFileName(record.DownloadedFilePath));
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    record.FailureReason = ex.Message;
+                    UpsertDownloadEntry(failures, record);
+                    log("Primary download failed for " + record.Name + ": " + ex.Message);
+                }
+
+                if ((i + 1) % ProgressSaveInterval == 0)
+                {
+                    SaveJson(Path.Combine(runtimeDirectory, PrimaryResolvedFile), allRecords);
+                    SaveJson(Path.Combine(runtimeDirectory, PrimaryFailuresFile), failures);
+                }
             }
         }
+        finally
+        {
+            SaveJson(Path.Combine(runtimeDirectory, PrimaryResolvedFile), allRecords);
+            SaveJson(Path.Combine(runtimeDirectory, PrimaryFailuresFile), failures);
+        }
 
-        SaveJson(Path.Combine(runtimeDirectory, PrimaryResolvedFile), records);
-        SaveJson(Path.Combine(runtimeDirectory, PrimaryFailuresFile), failures);
         log("Primary failures: " + failures.Count);
     }
 
-    private Task Step5PrepareMirrorFallbackAsync(string runtimeDirectory, Action<string> log, CancellationToken cancellationToken)
+    private Task Step5PrepareMirrorFallbackAsync(string runtimeDirectory, bool failedOnly, Action<string> log, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        List<DownloadEntry> failures = LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, PrimaryFailuresFile)) ?? [];
-        List<DownloadEntry> mirrorCandidates = failures
-            .Where(record => !string.IsNullOrWhiteSpace(record.MirrorIntermediateUrl))
-            .ToList();
+        List<DownloadEntry> mirrorCandidates = GetMirrorFallbackCandidates(runtimeDirectory);
         SaveJson(Path.Combine(runtimeDirectory, MirrorCandidatesFile), mirrorCandidates);
-        log("Mirror fallback candidates: " + mirrorCandidates.Count);
+        log((failedOnly ? "Failed-only mirror fallback candidates: " : "Mirror fallback candidates: ") + mirrorCandidates.Count);
         return Task.CompletedTask;
     }
 
-    private async Task Step6ResolveMirrorLinksAsync(string runtimeDirectory, Action<string> log, CancellationToken cancellationToken)
+    private async Task Step6ResolveMirrorLinksAsync(string runtimeDirectory, bool failedOnly, Action<string> log, CancellationToken cancellationToken)
     {
-        List<DownloadEntry> records = LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, MirrorCandidatesFile)) ?? [];
+        List<DownloadEntry> sourceRecords = LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, MirrorCandidatesFile)) ?? [];
+        List<DownloadEntry> allRecords = MergeDownloadEntries(
+            sourceRecords,
+            LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, MirrorResolvedFile)) ?? []);
+        List<DownloadEntry> records = failedOnly
+            ? allRecords.Where(IsUnresolvedMirrorLinkRecord).ToList()
+            : allRecords;
 
-        using HttpClient client = CreateHttpClient();
-        for (int i = 0; i < records.Count; i++)
+        log((failedOnly ? "Retrying " : "Processing ") + records.Count + " mirror link record(s).");
+
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            DownloadEntry record = records[i];
-            try
+            using HttpClient client = CreateHttpClient();
+            for (int i = 0; i < records.Count; i++)
             {
-                record.MirrorUrl = await ResolveIntermediateLinkAsync(client, record.MirrorIntermediateUrl, cancellationToken);
-                log("[" + (i + 1) + "/" + records.Count + "] Resolved mirror URL for " + record.Name);
-            }
-            catch (Exception ex)
-            {
-                record.FailureReason = ex.Message;
-                log("Mirror link resolution failed for " + record.Name + ": " + ex.Message);
+                cancellationToken.ThrowIfCancellationRequested();
+                DownloadEntry record = records[i];
+                if (string.IsNullOrWhiteSpace(record.MirrorIntermediateUrl))
+                {
+                    log("[" + (i + 1) + "/" + records.Count + "] No mirror link for " + record.Name);
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(record.MirrorUrl))
+                {
+                    log("[" + (i + 1) + "/" + records.Count + "] Already resolved mirror URL for " + record.Name);
+                    continue;
+                }
+
+                try
+                {
+                    record.MirrorUrl = await RetryAsync(
+                        () => ResolveIntermediateLinkAsync(client, record.MirrorIntermediateUrl, cancellationToken),
+                        log,
+                        "resolve mirror link",
+                        cancellationToken);
+                    record.FailureReason = null;
+                    log("[" + (i + 1) + "/" + records.Count + "] Resolved mirror URL for " + record.Name);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    record.FailureReason = ex.Message;
+                    log("Mirror link resolution failed for " + record.Name + ": " + ex.Message);
+                }
+
+                if ((i + 1) % ProgressSaveInterval == 0)
+                {
+                    SaveJson(Path.Combine(runtimeDirectory, MirrorResolvedFile), allRecords);
+                }
             }
         }
-
-        SaveJson(Path.Combine(runtimeDirectory, MirrorResolvedFile), records);
+        finally
+        {
+            SaveJson(Path.Combine(runtimeDirectory, MirrorResolvedFile), allRecords);
+        }
     }
 
-    private async Task Step7DownloadMirrorArchivesAsync(string runtimeDirectory, string saveDirectory, Action<string> log, CancellationToken cancellationToken)
+    private async Task Step7DownloadMirrorArchivesAsync(string runtimeDirectory, string saveDirectory, bool failedOnly, Action<string> log, CancellationToken cancellationToken)
     {
-        List<DownloadEntry> records = LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, MirrorResolvedFile)) ?? [];
-        var failures = new List<DownloadEntry>();
+        List<DownloadEntry> allRecords = LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, MirrorResolvedFile)) ?? [];
+        List<DownloadEntry> records = failedOnly
+            ? MergeDownloadEntries(GetUnresolvedMirrorDownloadFailures(runtimeDirectory), allRecords)
+            : allRecords;
+        List<DownloadEntry> failures = failedOnly
+            ? LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, MirrorFailuresFile)) ?? []
+            : [];
+        List<DownloadEntry> primaryFailures = LoadJson<List<DownloadEntry>>(Path.Combine(runtimeDirectory, PrimaryFailuresFile)) ?? [];
 
-        for (int i = 0; i < records.Count; i++)
+        log((failedOnly ? "Retrying " : "Processing ") + records.Count + " mirror download record(s).");
+
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            DownloadEntry record = records[i];
-            if (string.IsNullOrWhiteSpace(record.MirrorUrl))
+            for (int i = 0; i < records.Count; i++)
             {
-                record.FailureReason = "Mirror URL missing";
-                failures.Add(record);
-                log("[" + (i + 1) + "/" + records.Count + "] No mirror URL: " + record.Name);
-                continue;
-            }
+                cancellationToken.ThrowIfCancellationRequested();
+                DownloadEntry record = records[i];
+                if (string.IsNullOrWhiteSpace(record.MirrorUrl))
+                {
+                    record.FailureReason = "Mirror URL missing";
+                    UpsertDownloadEntry(failures, record);
+                    log("[" + (i + 1) + "/" + records.Count + "] No mirror URL: " + record.Name);
+                    continue;
+                }
 
-            try
-            {
-                record.DownloadedFilePath = await DownloadResolvedUrlAsync(record.Name, record.MirrorUrl, saveDirectory, cancellationToken);
-                record.FailureReason = null;
-                log("[" + (i + 1) + "/" + records.Count + "] Downloaded mirror: " + Path.GetFileName(record.DownloadedFilePath));
-            }
-            catch (Exception ex)
-            {
-                record.FailureReason = ex.Message;
-                failures.Add(record);
-                log("Mirror download failed for " + record.Name + ": " + ex.Message);
+                if (TryUseExistingDownloadedFile(record, saveDirectory, log, "mirror"))
+                {
+                    RemoveDownloadEntry(failures, record);
+                    RemoveDownloadEntry(primaryFailures, record);
+                    log("[" + (i + 1) + "/" + records.Count + "] Already downloaded mirror: " + Path.GetFileName(record.DownloadedFilePath));
+                    continue;
+                }
+
+                try
+                {
+                    record.DownloadedFilePath = await RetryAsync(
+                        () => DownloadResolvedUrlAsync(record.Name, record.MirrorUrl, saveDirectory, cancellationToken),
+                        log,
+                        "download mirror",
+                        cancellationToken);
+                    record.FailureReason = null;
+                    RemoveDownloadEntry(failures, record);
+                    RemoveDownloadEntry(primaryFailures, record);
+                    log("[" + (i + 1) + "/" + records.Count + "] Downloaded mirror: " + Path.GetFileName(record.DownloadedFilePath));
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    record.FailureReason = ex.Message;
+                    UpsertDownloadEntry(failures, record);
+                    log("Mirror download failed for " + record.Name + ": " + ex.Message);
+                }
+
+                if ((i + 1) % ProgressSaveInterval == 0)
+                {
+                    SaveJson(Path.Combine(runtimeDirectory, MirrorResolvedFile), allRecords);
+                    SaveJson(Path.Combine(runtimeDirectory, MirrorFailuresFile), failures);
+                    SaveJson(Path.Combine(runtimeDirectory, PrimaryFailuresFile), primaryFailures);
+                }
             }
         }
+        finally
+        {
+            SaveJson(Path.Combine(runtimeDirectory, MirrorResolvedFile), allRecords);
+            SaveJson(Path.Combine(runtimeDirectory, MirrorFailuresFile), failures);
+            SaveJson(Path.Combine(runtimeDirectory, PrimaryFailuresFile), primaryFailures);
+        }
 
-        SaveJson(Path.Combine(runtimeDirectory, MirrorResolvedFile), records);
-        SavePermanentMirrorFailures(runtimeDirectory, failures);
         log("Mirror failures kept for manual resolution: " + failures.Count);
     }
 
@@ -383,26 +732,120 @@ public class DownloadPipelineService
         SaveJson(path, permanentFailures);
     }
 
-    private static bool IsSameDownloadEntry(DownloadEntry left, DownloadEntry right)
+    private static string DescribeDownloadEntry(DownloadEntry record)
     {
-        if (left == null || right == null)
+        if (record == null)
         {
-            return false;
+            return string.Empty;
         }
 
-        string leftKey = !string.IsNullOrWhiteSpace(left.ArticleUrl) ? left.ArticleUrl : left.Name;
-        string rightKey = !string.IsNullOrWhiteSpace(right.ArticleUrl) ? right.ArticleUrl : right.Name;
-        return string.Equals(leftKey, rightKey, StringComparison.OrdinalIgnoreCase);
+        string name = !string.IsNullOrWhiteSpace(record.Name) ? record.Name : record.ArticleUrl;
+        string fileName = Path.GetFileName(record.DownloadedFilePath);
+        return string.IsNullOrWhiteSpace(fileName) ? name : name + " (" + fileName + ")";
+    }
+
+    private static void RemoveDownloadEntriesFromFailureFile(
+        string runtimeDirectory,
+        string fileName,
+        IReadOnlyList<DownloadEntry> recordsToRemove)
+    {
+        if (recordsToRemove == null || recordsToRemove.Count == 0)
+        {
+            return;
+        }
+
+        string path = Path.Combine(runtimeDirectory, fileName);
+        List<DownloadEntry> failures = LoadJson<List<DownloadEntry>>(path) ?? [];
+        int originalCount = failures.Count;
+        foreach (DownloadEntry recordToRemove in recordsToRemove)
+        {
+            RemoveDownloadEntry(failures, recordToRemove);
+        }
+
+        if (failures.Count != originalCount)
+        {
+            SaveJson(path, failures);
+        }
+    }
+
+    private ArticleMetadataResult TryCacheArticleMetadata(string gameName, string articleUrl, string html, Action<string> log)
+    {
+        string iconPath = string.Empty;
+        List<string> defaultTags = new();
+        try
+        {
+            string expectedInstallDirectory = Path.Combine(AppSettings.GamesDirectory, gameName);
+            GameSourceMetadata sourceMetadata = iconPipelineService.ResolveSourceMetadataFromKimochiArticle(
+                gameName,
+                expectedInstallDirectory,
+                articleUrl,
+                html);
+            defaultTags = sourceMetadata.DefaultTags ?? new List<string>();
+
+            GameIconResolveResult iconResult = iconPipelineService.ResolveIconFromKimochiArticle(
+                gameName,
+                expectedInstallDirectory,
+                articleUrl,
+                html);
+            if (!string.IsNullOrWhiteSpace(iconResult.IconPath))
+            {
+                iconPath = iconResult.IconPath;
+            }
+        }
+        catch (Exception ex)
+        {
+            log("Article metadata fetch skipped for " + gameName + ": " + ex.Message);
+        }
+
+        return new ArticleMetadataResult(iconPath, defaultTags);
+    }
+
+    private static async Task<T> RetryAsync<T>(
+        Func<Task<T>> action,
+        Action<string> log,
+        string operationName,
+        CancellationToken cancellationToken)
+    {
+        for (int attempt = 1; attempt <= MaxRetryAttempts; attempt++)
+        {
+            try
+            {
+                return await action();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex) when (attempt < MaxRetryAttempts)
+            {
+                TimeSpan delay = TimeSpan.FromSeconds(attempt == 1 ? 1 : 3);
+                log(operationName + " failed, retrying " + (attempt + 1) + "/" + MaxRetryAttempts + ": " + ex.Message);
+                await Task.Delay(delay, cancellationToken);
+            }
+        }
+
+        return await action();
     }
 
     private async Task<string> ResolveIntermediateLinkAsync(HttpClient client, string url, CancellationToken cancellationToken)
     {
         Uri currentUri = new(url, UriKind.Absolute);
         string firstHtml = await GetStringSafeAsync(client, currentUri.AbsoluteUri, cancellationToken);
-        string getLinkUrl = ExtractActionLink(firstHtml, currentUri, "Getlink");
+        string getLinkUrl = ExtractActionLink(firstHtml, currentUri, "Download File");
         if (string.IsNullOrWhiteSpace(getLinkUrl))
         {
-            throw new InvalidOperationException("Getlink action was not found.");
+            getLinkUrl = ExtractActionLink(firstHtml, currentUri, "Getlink");
+        }
+
+        if (string.IsNullOrWhiteSpace(getLinkUrl))
+        {
+            throw new InvalidOperationException("Download action was not found.");
+        }
+
+        string redirectedUrl = await ResolveDownloadFileRedirectAsync(getLinkUrl, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(redirectedUrl))
+        {
+            return redirectedUrl;
         }
 
         Uri secondUri = new(getLinkUrl, UriKind.Absolute);
@@ -414,6 +857,37 @@ public class DownloadPipelineService
         }
 
         return directUrl;
+    }
+
+    private static async Task<string> ResolveDownloadFileRedirectAsync(string url, CancellationToken cancellationToken)
+    {
+        using HttpClient client = CreateHttpClient(new HttpClientHandler
+        {
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+            AllowAutoRedirect = false
+        });
+
+        using HttpResponseMessage response = await client.GetAsync(url, cancellationToken);
+        if (response.Headers.TryGetValues("x-download-url", out IEnumerable<string> downloadUrls))
+        {
+            string downloadUrl = downloadUrls.FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(downloadUrl))
+            {
+                return WebUtility.HtmlDecode(downloadUrl);
+            }
+        }
+
+        if (response.Headers.Location != null)
+        {
+            return new Uri(new Uri(url), response.Headers.Location).AbsoluteUri;
+        }
+
+        string html = await response.Content.ReadAsStringAsync(cancellationToken);
+        Match match = Regex.Match(
+            html,
+            "https?://(?:drive\\.google\\.com|workupload\\.com|www\\.workupload\\.com|mediafire\\.com)[^\"'<>\\s]+",
+            RegexOptions.IgnoreCase);
+        return match.Success ? WebUtility.HtmlDecode(match.Value) : null;
     }
 
     private async Task<string> DownloadResolvedUrlAsync(string baseName, string url, string saveDirectory, CancellationToken cancellationToken)
@@ -440,6 +914,7 @@ public class DownloadPipelineService
         using HttpClient client = CreateHttpClient();
         using HttpResponseMessage response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
+        await EnsureDownloadableResponseAsync(response, cancellationToken);
         return await SaveResponseToFileAsync(baseName, response, saveDirectory, cancellationToken);
     }
 
@@ -491,6 +966,19 @@ public class DownloadPipelineService
     {
         using HttpClient client = CreateHttpClient();
         string html = await GetStringSafeAsync(client, url, cancellationToken);
+        Match downloadButton = Regex.Match(
+            html,
+            "<a[^>]*id=[\"']downloadButton[\"'][^>]*href=[\"'](?<href>https?://[^\"']+)[\"']",
+            RegexOptions.IgnoreCase);
+        if (downloadButton.Success)
+        {
+            string href = WebUtility.HtmlDecode(downloadButton.Groups["href"].Value);
+            if (IsMediaFireDirectDownloadUrl(href))
+            {
+                return href;
+            }
+        }
+
         foreach (Match anchor in Regex.Matches(
             html,
             "<a[^>]*href=[\"'](?<href>https?://[^\"']+)[\"'][^>]*>(?<text>[\\s\\S]*?)</a>",
@@ -498,8 +986,7 @@ public class DownloadPipelineService
         {
             string text = StripTags(anchor.Groups["text"].Value);
             string href = WebUtility.HtmlDecode(anchor.Groups["href"].Value);
-            if (text.IndexOf("download", StringComparison.OrdinalIgnoreCase) >= 0 &&
-                href.IndexOf("mediafire.com", StringComparison.OrdinalIgnoreCase) >= 0)
+            if (text.IndexOf("download", StringComparison.OrdinalIgnoreCase) >= 0 && IsMediaFireDirectDownloadUrl(href))
             {
                 return href;
             }
@@ -511,7 +998,55 @@ public class DownloadPipelineService
     private static bool IsDownloadResponse(HttpResponseMessage response)
     {
         string contentType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
-        return !contentType.StartsWith("text/html", StringComparison.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(contentType))
+        {
+            return true;
+        }
+
+        return !contentType.StartsWith("text/", StringComparison.OrdinalIgnoreCase) &&
+            !contentType.Equals("application/xhtml+xml", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task EnsureDownloadableResponseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (IsDownloadResponse(response))
+        {
+            return;
+        }
+
+        string body = await response.Content.ReadAsStringAsync(cancellationToken);
+        throw new InvalidOperationException(BuildNonFileResponseMessage(response, body));
+    }
+
+    private static string BuildNonFileResponseMessage(HttpResponseMessage response, string body)
+    {
+        Uri responseUri = response.RequestMessage?.RequestUri;
+        string host = responseUri?.Host ?? "download host";
+        if (body?.IndexOf("quota exceeded", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return "Google Drive quota exceeded.";
+        }
+
+        if (body?.IndexOf("Are you a human", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            body?.IndexOf("Security Check", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return host + " returned a security check page instead of a file.";
+        }
+
+        return host + " returned a web page instead of a file.";
+    }
+
+    private static bool IsMediaFireDirectDownloadUrl(string href)
+    {
+        if (!Uri.TryCreate(href, UriKind.Absolute, out Uri uri))
+        {
+            return false;
+        }
+
+        string host = uri.Host.ToLowerInvariant();
+        return host.Contains("mediafire.com") &&
+            (host.StartsWith("download", StringComparison.OrdinalIgnoreCase) ||
+                uri.AbsolutePath.IndexOf("/download", StringComparison.OrdinalIgnoreCase) >= 0);
     }
 
     private static async Task<string> SaveResponseToFileAsync(
@@ -531,9 +1066,18 @@ public class DownloadPipelineService
         }
 
         string targetPath = Path.Combine(saveDirectory, finalName);
-        await using Stream source = await response.Content.ReadAsStreamAsync(cancellationToken);
-        await using FileStream destination = new(targetPath, FileMode.Create, FileAccess.Write, FileShare.None);
-        await source.CopyToAsync(destination, cancellationToken);
+        await using (Stream source = await response.Content.ReadAsStreamAsync(cancellationToken))
+        await using (FileStream destination = new(targetPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            await source.CopyToAsync(destination, cancellationToken);
+        }
+
+        if (!IsUsableDownloadedFile(targetPath))
+        {
+            string reason = GetInvalidDownloadedFileReason(targetPath);
+            TryDeleteFile(targetPath);
+            throw new InvalidOperationException("Downloaded response was not a usable file: " + reason);
+        }
 
         return targetPath;
     }
@@ -568,6 +1112,16 @@ public class DownloadPipelineService
                 return ".png";
             case "video/mp4":
                 return ".mp4";
+            case "video/webm":
+                return ".webm";
+            case "video/quicktime":
+                return ".mov";
+            case "video/x-matroska":
+                return ".mkv";
+            case "video/x-msvideo":
+                return ".avi";
+            case "video/x-ms-wmv":
+                return ".wmv";
         }
 
         Uri finalUri = response.RequestMessage?.RequestUri;
@@ -599,6 +1153,14 @@ public class DownloadPipelineService
                 RegexOptions.IgnoreCase);
             if (!hrefMatch.Success)
             {
+                hrefMatch = Regex.Match(
+                    articleHtml,
+                    "<a[^>]*href=[\"'](?<href>https?://kimochi\\.info/(?!browse/|page/|search/|feedback/|faqs/|privacy-policy|terms-of-service|explore/|trending/|wp-)[^\"']+)[\"']",
+                    RegexOptions.IgnoreCase);
+            }
+
+            if (!hrefMatch.Success)
+            {
                 continue;
             }
 
@@ -612,6 +1174,14 @@ public class DownloadPipelineService
                 articleHtml,
                 "updated[\"'][^>]*>(?<text>[\\s\\S]*?)</",
                 RegexOptions.IgnoreCase);
+            if (!dateMatch.Success)
+            {
+                dateMatch = Regex.Match(
+                    articleHtml,
+                    "(?<text>(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\s+\\d{1,2},\\s+\\d{4})",
+                    RegexOptions.IgnoreCase);
+            }
+
             DateTime? date = dateMatch.Success
                 ? ParseRelativeTime(StripTags(dateMatch.Groups["text"].Value))
                 : null;
@@ -628,7 +1198,43 @@ public class DownloadPipelineService
             html,
             "<h1[^>]*class=[\"'][^\"']*entry-title[^\"']*[\"'][^>]*>(?<text>[\\s\\S]*?)</h1>",
             RegexOptions.IgnoreCase);
-        return match.Success ? StripTags(match.Groups["text"].Value) : string.Empty;
+        if (!match.Success)
+        {
+            match = Regex.Match(
+                html,
+                "<h1\\b[^>]*>(?<text>[\\s\\S]*?)</h1>",
+                RegexOptions.IgnoreCase);
+        }
+
+        if (!match.Success)
+        {
+            match = Regex.Match(
+                html,
+                "<meta[^>]*(?:property|name)=[\"']og:title[\"'][^>]*content=[\"'](?<text>[^\"']+)[\"'][^>]*>",
+                RegexOptions.IgnoreCase);
+        }
+
+        if (!match.Success)
+        {
+            match = Regex.Match(
+                html,
+                "<title[^>]*>(?<text>[\\s\\S]*?)</title>",
+                RegexOptions.IgnoreCase);
+        }
+
+        if (!match.Success)
+        {
+            return string.Empty;
+        }
+
+        string title = StripTags(match.Groups["text"].Value);
+        const string suffix = " - Kimochi Gaming";
+        if (title.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+        {
+            title = title[..^suffix.Length].Trim();
+        }
+
+        return title;
     }
 
     private static string ExtractHostLink(string html, string hostName, string pageUrl)
@@ -640,11 +1246,78 @@ public class DownloadPipelineService
         Match match = Regex.Match(html, pattern, RegexOptions.IgnoreCase);
         if (!match.Success)
         {
-            return null;
+            return ExtractDownloadCardLink(html, pageUrl, hostName);
         }
 
         string href = WebUtility.HtmlDecode(match.Groups["href"].Value);
         return new Uri(new Uri(pageUrl), href).AbsoluteUri;
+    }
+
+    private static bool HasExtractedHostLinks(DownloadEntry record)
+    {
+        return record != null &&
+            !string.IsNullOrWhiteSpace(record.Name) &&
+            !string.Equals(record.Name, "unknown_title", StringComparison.OrdinalIgnoreCase) &&
+            (!string.IsNullOrWhiteSpace(record.DriveIntermediateUrl) ||
+                !string.IsNullOrWhiteSpace(record.MirrorIntermediateUrl));
+    }
+
+    private static bool HasCachedIcon(DownloadEntry record)
+    {
+        return record != null &&
+            !string.IsNullOrWhiteSpace(record.IconPath) &&
+            File.Exists(record.IconPath);
+    }
+
+    private static bool HasExtractedArticleMetadata(DownloadEntry record)
+    {
+        return HasExtractedTags(record) &&
+            (!AppSettings.EnableRemoteIconFetch || HasCachedIcon(record));
+    }
+
+    private static bool HasExtractedTags(DownloadEntry record)
+    {
+        return record?.DefaultTags?.Count > 0;
+    }
+
+    private static string ExtractDownloadCardLink(string html, string pageUrl, string hostName)
+    {
+        Match downloadsMatch = Regex.Match(
+            html,
+            "<section\\b[^>]*id=[\"']downloads[\"'][^>]*>(?<html>[\\s\\S]*?)(?:</section>|<section\\b)",
+            RegexOptions.IgnoreCase);
+        string searchHtml = downloadsMatch.Success ? downloadsMatch.Groups["html"].Value : html;
+        var candidates = new List<Tuple<string, string>>();
+
+        foreach (Match linkMatch in Regex.Matches(
+            searchHtml,
+            "<a\\b[^>]*href=[\"'](?<href>[^\"']*/download/[^\"']+)[\"'][^>]*>(?<text>[\\s\\S]*?)</a>",
+            RegexOptions.IgnoreCase))
+        {
+            string href = WebUtility.HtmlDecode(linkMatch.Groups["href"].Value);
+            string text = StripTags(linkMatch.Groups["text"].Value);
+            candidates.Add(Tuple.Create(href, text));
+        }
+
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        Tuple<string, string> selected = null;
+        if (hostName.Equals("Drive", StringComparison.OrdinalIgnoreCase))
+        {
+            selected = candidates.FirstOrDefault(candidate =>
+                candidate.Item2.IndexOf("drive", StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+        else if (hostName.Equals("Mirror", StringComparison.OrdinalIgnoreCase))
+        {
+            selected = candidates.FirstOrDefault(candidate =>
+                candidate.Item2.IndexOf("drive", StringComparison.OrdinalIgnoreCase) < 0);
+        }
+
+        selected ??= candidates.FirstOrDefault();
+        return selected == null ? null : new Uri(new Uri(pageUrl), selected.Item1).AbsoluteUri;
     }
 
     private static string ExtractActionLink(string html, Uri baseUri, string actionText)
@@ -733,6 +1406,11 @@ public class DownloadPipelineService
 
         DateTime now = DateTime.Now;
         string normalized = text.Trim().ToLowerInvariant();
+        if (DateTime.TryParse(text.Trim(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out DateTime absoluteDate))
+        {
+            return absoluteDate.Date;
+        }
+
         var patterns = new[]
         {
             Tuple.Create("second", 1),
@@ -765,43 +1443,10 @@ public class DownloadPipelineService
         return match.Success ? match.Groups[1].Value : null;
     }
 
-    private static string SanitizeFileName(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            return "unknown_title";
-        }
-
-        foreach (char invalid in Path.GetInvalidFileNameChars())
-        {
-            name = name.Replace(invalid, '_');
-        }
-
-        return name.Trim();
-    }
-
     private static string StripTags(string html)
     {
         string value = Regex.Replace(html ?? string.Empty, "<.*?>", string.Empty);
         return WebUtility.HtmlDecode(value).Trim();
-    }
-
-    private static void SaveJson<T>(string path, T value)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        string json = JsonConvert.SerializeObject(value, Formatting.Indented);
-        File.WriteAllText(path, json);
-    }
-
-    private static T LoadJson<T>(string path)
-    {
-        if (!File.Exists(path))
-        {
-            return default;
-        }
-
-        string json = File.ReadAllText(path);
-        return JsonConvert.DeserializeObject<T>(json);
     }
 
     private static HttpClient CreateHttpClient()
@@ -832,5 +1477,18 @@ public class DownloadPipelineService
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync(cancellationToken);
+    }
+
+    private sealed class ArticleMetadataResult
+    {
+        public ArticleMetadataResult(string iconPath, List<string> defaultTags)
+        {
+            IconPath = iconPath ?? string.Empty;
+            DefaultTags = defaultTags ?? new List<string>();
+        }
+
+        public string IconPath { get; }
+
+        public List<string> DefaultTags { get; }
     }
 }

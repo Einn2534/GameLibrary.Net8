@@ -23,17 +23,29 @@ public static class AppSettings
 
     public static int RemoteIconFetchLimitPerRun => GetIntSetting("RemoteIconFetchLimitPerRun", 15);
 
+    public static int ExpandedLibrarySizeLimitGb => Math.Max(0, GetIntSetting("ExpandedLibrarySizeLimitGb", 750));
+
+    public static bool EnableAutoPruneExpandedLibrary => GetBooleanSetting("EnableAutoPruneExpandedLibrary", true);
+
     public static string RuntimeDirectory => GetPathSetting("RuntimeDirectory", "runtime");
+
+    public static string SaveBackupDirectory => GetPathSetting("SaveBackupDirectory", Path.Combine(RuntimeDirectory, "save-backups"));
 
     public static string ArchiveInboxDirectory => GetPathSetting("ArchiveInboxDirectory", "incoming");
 
     public static string ArchiveStorageDirectory => GetPathSetting("ArchiveStorageDirectory", Path.Combine(GamesDirectory, ".archives"));
+
+    public static string VideoLibraryDirectory => GetPathSetting("VideoLibraryDirectory", Path.Combine(GamesDirectory, "Videos"));
 
     public static string SevenZipPath => GetPathSetting("SevenZipPath", @"C:\Program Files\7-Zip\7z.exe");
 
     public static IReadOnlyList<string> ArchivePasswords => GetListSetting("ArchivePasswords", "kimochi.info", "ADHentai");
 
     public static IReadOnlyList<string> ArchiveExtensions => GetListSetting("ArchiveExtensions", ".zip", ".rar", ".7z");
+
+    public static IReadOnlyList<string> MediaExtensions => GetListSetting("MediaExtensions", ".mp4", ".webm", ".mov", ".mkv", ".avi", ".wmv");
+
+    public static int LaunchVolumePercent => Math.Clamp(GetIntSetting("LaunchVolumePercent", 20), 0, 100);
 
     private static string GetRequiredPathSetting(string key)
     {

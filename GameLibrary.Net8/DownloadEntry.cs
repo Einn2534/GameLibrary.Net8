@@ -14,6 +14,10 @@ public class DownloadEntry
 
     public string MirrorUrl { get; set; }
 
+    public string IconPath { get; set; }
+
+    public List<string> DefaultTags { get; set; } = new();
+
     public string DownloadedFilePath { get; set; }
 
     public string FailureReason { get; set; }
