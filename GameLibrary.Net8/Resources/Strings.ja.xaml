@@ -7,64 +7,135 @@
     <sys:String x:Key="Button.RefreshLibrary" xmlns:sys="clr-namespace:System;assembly=mscorlib">ライブラリ再読み込み</sys:String>
     <sys:String x:Key="Button.OpenLibraryFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">ライブラリフォルダーを開く</sys:String>
     <sys:String x:Key="Button.Launch" xmlns:sys="clr-namespace:System;assembly=mscorlib">起動</sys:String>
+    <sys:String x:Key="Button.Play" xmlns:sys="clr-namespace:System;assembly=mscorlib">再生</sys:String>
     <sys:String x:Key="Button.OpenFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">フォルダーを開く</sys:String>
     <sys:String x:Key="Button.RunDownloader" xmlns:sys="clr-namespace:System;assembly=mscorlib">ダウンローダー実行</sys:String>
+    <sys:String x:Key="Button.ResumeDownloader" xmlns:sys="clr-namespace:System;assembly=mscorlib">前回の続きから再開</sys:String>
     <sys:String x:Key="Button.Stop" xmlns:sys="clr-namespace:System;assembly=mscorlib">停止</sys:String>
-    <sys:String x:Key="Button.RefreshArchives" xmlns:sys="clr-namespace:System;assembly=mscorlib">アーカイブ再読み込み</sys:String>
-    <sys:String x:Key="Button.ExtractAllToLibrary" xmlns:sys="clr-namespace:System;assembly=mscorlib">すべてライブラリへ展開</sys:String>
+    <sys:String x:Key="Button.RefreshArchives" xmlns:sys="clr-namespace:System;assembly=mscorlib">ダウンロード再読み込み</sys:String>
+    <sys:String x:Key="Button.ExtractAllToLibrary" xmlns:sys="clr-namespace:System;assembly=mscorlib">すべてライブラリへ取り込み</sys:String>
     <sys:String x:Key="Button.OpenInboxFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">受信フォルダーを開く</sys:String>
+    <sys:String x:Key="Button.OpenRuntimeFolder" xmlns:sys="clr-namespace:System;assembly=mscorlib">ランタイムフォルダーを開く</sys:String>
+    <sys:String x:Key="Button.RefreshDownloaderFailures" xmlns:sys="clr-namespace:System;assembly=mscorlib">再読み込み</sys:String>
+    <sys:String x:Key="Button.CopyAllFailureLinks" xmlns:sys="clr-namespace:System;assembly=mscorlib">すべてのリンクをコピー</sys:String>
+    <sys:String x:Key="Button.CopyFailureLinks" xmlns:sys="clr-namespace:System;assembly=mscorlib">リンクをコピー</sys:String>
+    <sys:String x:Key="Button.PreviousPage" xmlns:sys="clr-namespace:System;assembly=mscorlib">前へ</sys:String>
+    <sys:String x:Key="Button.NextPage" xmlns:sys="clr-namespace:System;assembly=mscorlib">次へ</sys:String>
+    <sys:String x:Key="Button.SaveTags" xmlns:sys="clr-namespace:System;assembly=mscorlib">タグを保存</sys:String>
+    <sys:String x:Key="Button.OpenIconSourcePage" xmlns:sys="clr-namespace:System;assembly=mscorlib">Open Source</sys:String>
+    <sys:String x:Key="Button.CopyIconDiagnostics" xmlns:sys="clr-namespace:System;assembly=mscorlib">Copy Diagnostics</sys:String>
     <sys:String x:Key="Label.Runtime" xmlns:sys="clr-namespace:System;assembly=mscorlib">ランタイム</sys:String>
-    <sys:String x:Key="Label.ArchiveInbox" xmlns:sys="clr-namespace:System;assembly=mscorlib">アーカイブ受信箱</sys:String>
+    <sys:String x:Key="Label.ArchiveInbox" xmlns:sys="clr-namespace:System;assembly=mscorlib">ダウンロード受信箱</sys:String>
     <sys:String x:Key="Label.LibraryRoot" xmlns:sys="clr-namespace:System;assembly=mscorlib">ライブラリルート</sys:String>
     <sys:String x:Key="Label.SevenZip" xmlns:sys="clr-namespace:System;assembly=mscorlib">7-Zip</sys:String>
+    <sys:String x:Key="Label.Tags" xmlns:sys="clr-namespace:System;assembly=mscorlib">タグ</sys:String>
+    <sys:String x:Key="Label.Video" xmlns:sys="clr-namespace:System;assembly=mscorlib">動画</sys:String>
+    <sys:String x:Key="Label.AdditionalTags" xmlns:sys="clr-namespace:System;assembly=mscorlib">追加タグ</sys:String>
     <sys:String x:Key="Label.From" xmlns:sys="clr-namespace:System;assembly=mscorlib">開始日</sys:String>
     <sys:String x:Key="Label.To" xmlns:sys="clr-namespace:System;assembly=mscorlib">終了日</sys:String>
     <sys:String x:Key="Label.StartStep" xmlns:sys="clr-namespace:System;assembly=mscorlib">開始ステップ</sys:String>
+    <sys:String x:Key="Label.FailedOnlyRerun" xmlns:sys="clr-namespace:System;assembly=mscorlib">失敗分のみ再実行</sys:String>
+    <sys:String x:Key="Label.SortOrder" xmlns:sys="clr-namespace:System;assembly=mscorlib">並び順</sys:String>
+    <sys:String x:Key="Label.LastAttemptedSource" xmlns:sys="clr-namespace:System;assembly=mscorlib">Attempted source</sys:String>
+    <sys:String x:Key="Label.SourcePageUrl" xmlns:sys="clr-namespace:System;assembly=mscorlib">Source page</sys:String>
+    <sys:String x:Key="Label.RequestUrl" xmlns:sys="clr-namespace:System;assembly=mscorlib">Request URL</sys:String>
+    <sys:String x:Key="Label.HttpStatus" xmlns:sys="clr-namespace:System;assembly=mscorlib">HTTP status</sys:String>
+    <sys:String x:Key="Label.SavedError" xmlns:sys="clr-namespace:System;assembly=mscorlib">Saved error</sys:String>
     <sys:String x:Key="Section.DownloaderSteps" xmlns:sys="clr-namespace:System;assembly=mscorlib">ダウンローダーステップ</sys:String>
     <sys:String x:Key="Section.DownloaderLog" xmlns:sys="clr-namespace:System;assembly=mscorlib">ダウンローダーログ</sys:String>
-    <sys:String x:Key="Section.ArchiveInboxContents" xmlns:sys="clr-namespace:System;assembly=mscorlib">アーカイブ受信箱の内容</sys:String>
+    <sys:String x:Key="Section.ArchiveInboxContents" xmlns:sys="clr-namespace:System;assembly=mscorlib">ダウンロード受信箱の内容</sys:String>
+    <sys:String x:Key="Section.RemoteIconFetchFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Remote icon fetch failed</sys:String>
     <sys:String x:Key="Column.Step" xmlns:sys="clr-namespace:System;assembly=mscorlib">ステップ</sys:String>
     <sys:String x:Key="Column.Status" xmlns:sys="clr-namespace:System;assembly=mscorlib">状態</sys:String>
-    <sys:String x:Key="Column.Archive" xmlns:sys="clr-namespace:System;assembly=mscorlib">アーカイブ</sys:String>
+    <sys:String x:Key="Column.Type" xmlns:sys="clr-namespace:System;assembly=mscorlib">種類</sys:String>
+    <sys:String x:Key="Column.Archive" xmlns:sys="clr-namespace:System;assembly=mscorlib">ファイル</sys:String>
     <sys:String x:Key="Column.Size" xmlns:sys="clr-namespace:System;assembly=mscorlib">サイズ</sys:String>
     <sys:String x:Key="Column.Modified" xmlns:sys="clr-namespace:System;assembly=mscorlib">更新日時</sys:String>
     <sys:String x:Key="Column.Path" xmlns:sys="clr-namespace:System;assembly=mscorlib">パス</sys:String>
+    <sys:String x:Key="Column.Name" xmlns:sys="clr-namespace:System;assembly=mscorlib">名前</sys:String>
+    <sys:String x:Key="Column.Reason" xmlns:sys="clr-namespace:System;assembly=mscorlib">理由</sys:String>
+    <sys:String x:Key="Column.Urls" xmlns:sys="clr-namespace:System;assembly=mscorlib">URL</sys:String>
     <sys:String x:Key="Filter.AllTags" xmlns:sys="clr-namespace:System;assembly=mscorlib">すべて</sys:String>
+    <sys:String x:Key="Library.PageSummary" xmlns:sys="clr-namespace:System;assembly=mscorlib">ページ {0} / {1}（{2}項目、{3}件/ページ）</sys:String>
+    <sys:String x:Key="Sort.NameAscending" xmlns:sys="clr-namespace:System;assembly=mscorlib">名前 (A-Z)</sys:String>
+    <sys:String x:Key="Sort.NameDescending" xmlns:sys="clr-namespace:System;assembly=mscorlib">名前 (Z-A)</sys:String>
+    <sys:String x:Key="Sort.ModifiedDescending" xmlns:sys="clr-namespace:System;assembly=mscorlib">更新日 (新しい順)</sys:String>
+    <sys:String x:Key="Sort.ModifiedAscending" xmlns:sys="clr-namespace:System;assembly=mscorlib">更新日 (古い順)</sys:String>
+    <sys:String x:Key="Sort.CreatedDescending" xmlns:sys="clr-namespace:System;assembly=mscorlib">追加日 (新しい順)</sys:String>
+    <sys:String x:Key="Sort.CreatedAscending" xmlns:sys="clr-namespace:System;assembly=mscorlib">追加日 (古い順)</sys:String>
     <sys:String x:Key="Status.Pending" xmlns:sys="clr-namespace:System;assembly=mscorlib">待機中</sys:String>
     <sys:String x:Key="Status.Skipped" xmlns:sys="clr-namespace:System;assembly=mscorlib">スキップ</sys:String>
     <sys:String x:Key="Status.Running" xmlns:sys="clr-namespace:System;assembly=mscorlib">実行中</sys:String>
     <sys:String x:Key="Status.Done" xmlns:sys="clr-namespace:System;assembly=mscorlib">完了</sys:String>
     <sys:String x:Key="Status.Error" xmlns:sys="clr-namespace:System;assembly=mscorlib">エラー</sys:String>
     <sys:String x:Key="Status.Ready" xmlns:sys="clr-namespace:System;assembly=mscorlib">準備完了</sys:String>
-    <sys:String x:Key="Status.LibraryLoaded" xmlns:sys="clr-namespace:System;assembly=mscorlib">ライブラリを読み込みました: {0} 件</sys:String>
+    <sys:String x:Key="Status.LibraryLoaded" xmlns:sys="clr-namespace:System;assembly=mscorlib">ライブラリを読み込みました: {0} 項目</sys:String>
     <sys:String x:Key="Status.TagStoreEmpty" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存済み追加タグなしでライブラリを読み込みました: タグストアが空です ({0})</sys:String>
     <sys:String x:Key="Status.TagStoreUnreadable" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存済み追加タグなしでライブラリを読み込みました: タグストアを読み取れません ({0}): {1}</sys:String>
     <sys:String x:Key="Status.TagStoreRepaired" xmlns:sys="clr-namespace:System;assembly=mscorlib">読み取れないタグストアを {0} にバックアップしてからタグを保存しました</sys:String>
     <sys:String x:Key="Status.LibraryLoadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">ライブラリの読み込みに失敗しました</sys:String>
-    <sys:String x:Key="Status.ArchiveInboxReady" xmlns:sys="clr-namespace:System;assembly=mscorlib">アーカイブ受信箱を準備しました: {0} 件</sys:String>
-    <sys:String x:Key="Status.ArchiveScanFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">アーカイブの走査に失敗しました</sys:String>
+    <sys:String x:Key="Status.ArchiveInboxReady" xmlns:sys="clr-namespace:System;assembly=mscorlib">ダウンロード受信箱を準備しました: {0} 件</sys:String>
+    <sys:String x:Key="Status.ArchiveScanFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">ダウンロードの走査に失敗しました</sys:String>
     <sys:String x:Key="Status.Launched" xmlns:sys="clr-namespace:System;assembly=mscorlib">起動しました: {0}</sys:String>
+    <sys:String x:Key="Status.Played" xmlns:sys="clr-namespace:System;assembly=mscorlib">再生します: {0}</sys:String>
     <sys:String x:Key="Status.DownloaderFinished" xmlns:sys="clr-namespace:System;assembly=mscorlib">ダウンローダーが完了しました</sys:String>
+    <sys:String x:Key="Status.DownloaderResumeReady" xmlns:sys="clr-namespace:System;assembly=mscorlib">ステップ {0} から再開します: {1}</sys:String>
     <sys:String x:Key="Status.DownloaderStopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">ダウンローダーを停止しました</sys:String>
     <sys:String x:Key="Status.DownloaderFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">ダウンローダーが失敗しました</sys:String>
-    <sys:String x:Key="Status.NoArchivesFound" xmlns:sys="clr-namespace:System;assembly=mscorlib">アーカイブが見つかりません</sys:String>
+    <sys:String x:Key="Status.DownloaderFailuresNone" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存済みのダウンローダー失敗はありません</sys:String>
+    <sys:String x:Key="Status.DownloaderFailuresLoaded" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存済みのダウンローダー失敗を読み込みました: {0} 件</sys:String>
+    <sys:String x:Key="Status.DownloaderFailuresLoadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">ダウンローダー失敗の読み込みに失敗しました: {0}</sys:String>
+    <sys:String x:Key="Status.DownloaderFailureLinksNone" xmlns:sys="clr-namespace:System;assembly=mscorlib">コピーできる失敗リンクはありません</sys:String>
+    <sys:String x:Key="Status.DownloaderFailureLinksCopied" xmlns:sys="clr-namespace:System;assembly=mscorlib">失敗リンクをコピーしました: {0} 件</sys:String>
+    <sys:String x:Key="Status.RemoteIconSourceUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">No remote icon source page URL saved</sys:String>
+    <sys:String x:Key="Status.RemoteIconDiagnosticsUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">No remote icon diagnostics to copy</sys:String>
+    <sys:String x:Key="Status.RemoteIconDiagnosticsCopied" xmlns:sys="clr-namespace:System;assembly=mscorlib">Copied remote icon diagnostics for {0}</sys:String>
+    <sys:String x:Key="Status.NoArchivesFound" xmlns:sys="clr-namespace:System;assembly=mscorlib">取り込むファイルが見つかりません</sys:String>
     <sys:String x:Key="Status.ImportError" xmlns:sys="clr-namespace:System;assembly=mscorlib">取り込みエラー: {0}</sys:String>
     <sys:String x:Key="Status.ImportComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">取り込み完了: {0} 件追加, {1} 件スキップ, {2} 件失敗</sys:String>
+    <sys:String x:Key="Status.TagsSaved" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0} の追加タグを保存しました: {1} 件</sys:String>
     <sys:String x:Key="Message.LibraryLoadFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">ライブラリの読み込みに失敗しました: {0}</sys:String>
-    <sys:String x:Key="Message.ArchiveScanFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">アーカイブ受信箱の走査に失敗しました: {0}</sys:String>
+    <sys:String x:Key="Message.ArchiveScanFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">ダウンロード受信箱の走査に失敗しました: {0}</sys:String>
     <sys:String x:Key="Message.ExecutableNotFound" xmlns:sys="clr-namespace:System;assembly=mscorlib">実行ファイルが見つかりません: {0}</sys:String>
     <sys:String x:Key="Message.LaunchFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">ゲームの起動に失敗しました: {0}</sys:String>
+    <sys:String x:Key="Message.MediaNotFound" xmlns:sys="clr-namespace:System;assembly=mscorlib">メディアファイルが見つかりません: {0}</sys:String>
+    <sys:String x:Key="Message.MediaLaunchFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">メディアの再生に失敗しました: {0}</sys:String>
     <sys:String x:Key="Message.DownloaderFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">ダウンローダーが失敗しました: {0}</sys:String>
     <sys:String x:Key="Message.FolderNotFound" xmlns:sys="clr-namespace:System;assembly=mscorlib">フォルダーが見つかりません: {0}</sys:String>
+    <sys:String x:Key="Message.UrlNotFound" xmlns:sys="clr-namespace:System;assembly=mscorlib">URL not found: {0}</sys:String>
+    <sys:String x:Key="Message.TagSaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">タグの保存に失敗しました: {0}</sys:String>
     <sys:String x:Key="Log.Stopped" xmlns:sys="clr-namespace:System;assembly=mscorlib">[停止]</sys:String>
     <sys:String x:Key="Log.ErrorFormat" xmlns:sys="clr-namespace:System;assembly=mscorlib">[エラー] {0}</sys:String>
     <sys:String x:Key="Archive.StatusSkippedAlreadyExists" xmlns:sys="clr-namespace:System;assembly=mscorlib">スキップ済み (既に存在)</sys:String>
     <sys:String x:Key="Archive.StatusImported" xmlns:sys="clr-namespace:System;assembly=mscorlib">取り込み完了</sys:String>
+    <sys:String x:Key="Media.StatusImporting" xmlns:sys="clr-namespace:System;assembly=mscorlib">移動中...</sys:String>
+    <sys:String x:Key="Media.StatusImported" xmlns:sys="clr-namespace:System;assembly=mscorlib">Videos へ移動しました</sys:String>
+    <sys:String x:Key="Media.StatusImportedFromArchive" xmlns:sys="clr-namespace:System;assembly=mscorlib">展開した動画を Videos へ移動しました: {0} 件</sys:String>
+    <sys:String x:Key="DownloadItem.Kind.Archive" xmlns:sys="clr-namespace:System;assembly=mscorlib">圧縮</sys:String>
+    <sys:String x:Key="DownloadItem.Kind.Video" xmlns:sys="clr-namespace:System;assembly=mscorlib">動画</sys:String>
     <sys:String x:Key="Archive.StatusExtracted" xmlns:sys="clr-namespace:System;assembly=mscorlib">展開完了</sys:String>
     <sys:String x:Key="Archive.StatusFailedToExtract" xmlns:sys="clr-namespace:System;assembly=mscorlib">展開失敗</sys:String>
     <sys:String x:Key="Archive.StatusExtracting" xmlns:sys="clr-namespace:System;assembly=mscorlib">展開中...</sys:String>
     <sys:String x:Key="Archive.StatusFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">失敗</sys:String>
     <sys:String x:Key="Downloader.StepDisplay" xmlns:sys="clr-namespace:System;assembly=mscorlib">ステップ {0} - {1}</sys:String>
+    <sys:String x:Key="Downloader.FailureSummary" xmlns:sys="clr-namespace:System;assembly=mscorlib">保存済みのダウンローダー失敗: {0} 件</sys:String>
+    <sys:String x:Key="Downloader.FailureGroup.HostLinks" xmlns:sys="clr-namespace:System;assembly=mscorlib">ホストリンク抽出の失敗</sys:String>
+    <sys:String x:Key="Downloader.FailureGroup.PrimaryDownloads" xmlns:sys="clr-namespace:System;assembly=mscorlib">一次ダウンロードの失敗</sys:String>
+    <sys:String x:Key="Downloader.FailureGroup.MirrorDownloads" xmlns:sys="clr-namespace:System;assembly=mscorlib">ミラーダウンロードの失敗</sys:String>
+    <sys:String x:Key="Downloader.FailureUnknownName" xmlns:sys="clr-namespace:System;assembly=mscorlib">(不明)</sys:String>
+    <sys:String x:Key="Downloader.FailureNoReason" xmlns:sys="clr-namespace:System;assembly=mscorlib">(理由未保存)</sys:String>
+    <sys:String x:Key="Downloader.FailureNoUrls" xmlns:sys="clr-namespace:System;assembly=mscorlib">(URL 未保存)</sys:String>
+    <sys:String x:Key="Downloader.FailedOnlyOff" xmlns:sys="clr-namespace:System;assembly=mscorlib">通常実行: 完了済みの項目は runtime の保存状態によりスキップされます。</sys:String>
+    <sys:String x:Key="Downloader.FailedOnlySummary" xmlns:sys="clr-namespace:System;assembly=mscorlib">失敗分のみの入力: {0} ({1} 件未解決)</sys:String>
+    <sys:String x:Key="Downloader.FailedOnlyUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">失敗分のみの入力を利用できません: {0}</sys:String>
+    <sys:String x:Key="Downloader.NoFailureSet" xmlns:sys="clr-namespace:System;assembly=mscorlib">このステップに失敗セットはありません</sys:String>
+    <sys:String x:Key="Downloader.ResumeDateRangeUnknown" xmlns:sys="clr-namespace:System;assembly=mscorlib">日付範囲不明</sys:String>
+    <sys:String x:Key="Downloader.ResumeDetectionFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">再開状態の検出に失敗しました: {0}</sys:String>
+    <sys:String x:Key="Downloader.ResumeOpenEnd" xmlns:sys="clr-namespace:System;assembly=mscorlib">最新</sys:String>
+    <sys:String x:Key="Downloader.ResumeOpenStart" xmlns:sys="clr-namespace:System;assembly=mscorlib">最初</sys:String>
+    <sys:String x:Key="Downloader.ResumeSummary" xmlns:sys="clr-namespace:System;assembly=mscorlib">前回の続き: ステップ {0} - {1}; 範囲 {2}; 更新 {3}</sys:String>
+    <sys:String x:Key="Downloader.ResumeUnavailable" xmlns:sys="clr-namespace:System;assembly=mscorlib">runtime に再開可能なダウンローダー実行はありません。</sys:String>
+    <sys:String x:Key="Downloader.ResumeUpdatedUnknown" xmlns:sys="clr-namespace:System;assembly=mscorlib">不明</sys:String>
     <sys:String x:Key="Downloader.Step.0" xmlns:sys="clr-namespace:System;assembly=mscorlib">記事 URL 収集</sys:String>
     <sys:String x:Key="Downloader.Step.1" xmlns:sys="clr-namespace:System;assembly=mscorlib">記事 URL 正規化</sys:String>
     <sys:String x:Key="Downloader.Step.2" xmlns:sys="clr-namespace:System;assembly=mscorlib">ホストリンク抽出</sys:String>
@@ -73,9 +144,26 @@
     <sys:String x:Key="Downloader.Step.5" xmlns:sys="clr-namespace:System;assembly=mscorlib">ミラーフォールバック準備</sys:String>
     <sys:String x:Key="Downloader.Step.6" xmlns:sys="clr-namespace:System;assembly=mscorlib">ミラーリンク解決</sys:String>
     <sys:String x:Key="Downloader.Step.7" xmlns:sys="clr-namespace:System;assembly=mscorlib">ミラーアーカイブ取得</sys:String>
-    <sys:String x:Key="Button.SaveTags" xmlns:sys="clr-namespace:System;assembly=mscorlib">タグを保存</sys:String>
-    <sys:String x:Key="Label.Tags" xmlns:sys="clr-namespace:System;assembly=mscorlib">タグ</sys:String>
-    <sys:String x:Key="Label.AdditionalTags" xmlns:sys="clr-namespace:System;assembly=mscorlib">追加タグ</sys:String>
-    <sys:String x:Key="Status.TagsSaved" xmlns:sys="clr-namespace:System;assembly=mscorlib">{0} の追加タグを保存しました: {1} 件</sys:String>
-    <sys:String x:Key="Message.TagSaveFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">タグの保存に失敗しました: {0}</sys:String>
+    <sys:String x:Key="Button.RerunFailureGroup" xmlns:sys="clr-namespace:System;assembly=mscorlib">Rerun</sys:String>
+    <sys:String x:Key="Status.DownloaderFailureRerunReady" xmlns:sys="clr-namespace:System;assembly=mscorlib">Prepared failed-only rerun for {0}: step {1} - {2}</sys:String>
+    <sys:String x:Key="Message.DownloaderFailureRerunPrompt" xmlns:sys="clr-namespace:System;assembly=mscorlib">Prepared failed-only rerun for {0} from step {1} - {2}. Start now?</sys:String>
+    <sys:String x:Key="Tab.Storage" xmlns:sys="clr-namespace:System;assembly=mscorlib">Storage</sys:String>
+    <sys:String x:Key="Button.DeleteInstall" xmlns:sys="clr-namespace:System;assembly=mscorlib">Delete Install</sys:String>
+    <sys:String x:Key="Button.CompressInstall" xmlns:sys="clr-namespace:System;assembly=mscorlib">Compress</sys:String>
+    <sys:String x:Key="Button.RefreshStorage" xmlns:sys="clr-namespace:System;assembly=mscorlib">Refresh Storage</sys:String>
+    <sys:String x:Key="Button.PruneExpandedLibrary" xmlns:sys="clr-namespace:System;assembly=mscorlib">Prune Installs</sys:String>
+    <sys:String x:Key="Button.RestoreArchive" xmlns:sys="clr-namespace:System;assembly=mscorlib">Restore</sys:String>
+    <sys:String x:Key="Label.ArchiveStorage" xmlns:sys="clr-namespace:System;assembly=mscorlib">Archive Storage</sys:String>
+    <sys:String x:Key="Label.ExpandedLibrary" xmlns:sys="clr-namespace:System;assembly=mscorlib">Expanded Installs</sys:String>
+    <sys:String x:Key="Section.StoredArchives" xmlns:sys="clr-namespace:System;assembly=mscorlib">Stored Archives</sys:String>
+    <sys:String x:Key="Section.StorageFindings" xmlns:sys="clr-namespace:System;assembly=mscorlib">Storage Findings</sys:String>
+    <sys:String x:Key="Column.Action" xmlns:sys="clr-namespace:System;assembly=mscorlib">Action</sys:String>
+    <sys:String x:Key="Column.FindingType" xmlns:sys="clr-namespace:System;assembly=mscorlib">Type</sys:String>
+    <sys:String x:Key="Column.Details" xmlns:sys="clr-namespace:System;assembly=mscorlib">Details</sys:String>
+    <sys:String x:Key="Status.StorageScanComplete" xmlns:sys="clr-namespace:System;assembly=mscorlib">Storage scan complete: {0} archive(s), {1} finding(s)</sys:String>
+    <sys:String x:Key="Status.StorageScanFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Storage scan failed: {0}</sys:String>
+    <sys:String x:Key="Message.DeleteInstallPrompt" xmlns:sys="clr-namespace:System;assembly=mscorlib">Delete the expanded install for {0}? The stored archive is kept, and detected save files will be backed up.</sys:String>
+    <sys:String x:Key="Message.PruneExpandedLibraryPrompt" xmlns:sys="clr-namespace:System;assembly=mscorlib">Delete old expanded installs that can be restored from stored archives until the library is under its size limit?</sys:String>
+    <sys:String x:Key="Message.StorageActionFailed" xmlns:sys="clr-namespace:System;assembly=mscorlib">Storage action failed: {0}</sys:String>
+    <sys:String x:Key="Storage.SummaryNeedsRefresh" xmlns:sys="clr-namespace:System;assembly=mscorlib">Use Refresh Storage to calculate expanded size.</sys:String>
 </ResourceDictionary>
