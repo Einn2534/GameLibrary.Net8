@@ -150,7 +150,15 @@ public class ArchiveImportService
         };
 
         using Process process = Process.Start(startInfo);
+        if (process == null)
+        {
+            throw new InvalidOperationException("7-Zip process could not be started.");
+        }
+
+        Task<string> standardOutput = process.StandardOutput.ReadToEndAsync();
+        Task<string> standardError = process.StandardError.ReadToEndAsync();
         process.WaitForExit();
+        Task.WaitAll(standardOutput, standardError);
         return process.ExitCode;
     }
 
