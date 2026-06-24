@@ -199,7 +199,9 @@ public class GameTagStoreService
 
     private static string BuildGameKey(GameInfo game)
     {
-        string key = !string.IsNullOrWhiteSpace(game?.InstallDirectory)
+        string key = game?.IsVideo == true && !string.IsNullOrWhiteSpace(game.MediaPath)
+            ? game.MediaPath
+            : !string.IsNullOrWhiteSpace(game?.InstallDirectory)
             ? game.InstallDirectory
             : game?.Name ?? string.Empty;
 
