@@ -3,5 +3,6 @@
 **/obj/
 runtime/
 incoming/
+.codex-remote-attachments/
 *.user
 *.suo
